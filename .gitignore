@@ -1,0 +1,14 @@
+# Archivos de compilación de Python y PyInstaller
+__pycache__/
+build/
+dist/
+*.spec
+*.exe
+
+# Base de datos local 
+datos_invernadero.json
+
+# Entornos virtuales y configuraciones del editor
+.vscode/
+venv/
+env/
