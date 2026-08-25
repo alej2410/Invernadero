@@ -12,3 +12,6 @@ datos_invernadero.json
 .vscode/
 venv/
 env/
+
+# Archivos de licencia locales
+licencia.key
