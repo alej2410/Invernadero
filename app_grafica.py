@@ -2,6 +2,8 @@ import json
 from datetime import datetime 
 import customtkinter as ctk 
 from tkinter import messagebox 
+import uuid
+import os
 
 # ========================================== 
 # 1. EL MODELO (TUS CLASES DE DATOS) 
@@ -813,8 +815,8 @@ class VentanaPrincipal(ctk.CTk):
         tabview = ctk.CTkTabview(ventana_reportes) 
         tabview.pack(pady=10, padx=20, fill="both", expand=True) 
 
-        tab_deudores = tabview.add("💰 Deudores") 
-        tab_inventario = tabview.add("🌱 Inventario Activo") 
+        tab_deudores = tabview.add("Deudores") 
+        tab_inventario = tabview.add("Inventario Activo") 
 
         deudores, total_deuda = self.sistema.reporte_deudores() 
         
@@ -871,12 +873,62 @@ class VentanaPrincipal(ctk.CTk):
 # ========================================== 
 # 3. EL CONTROLADOR (MAIN) 
 # ========================================== 
+# ========================================== 
+# 3. EL CONTROLADOR (MAIN) CON SEGURIDAD
+# ========================================== 
 def main(): 
+    archivo_licencia = "licencia.key"
+    # Leemos la dirección MAC (serial físico único) de la computadora actual
+    mac_actual = str(uuid.getnode()) 
+
+    def cargar_licencia():
+        if os.path.exists(archivo_licencia):
+            with open(archivo_licencia, 'r') as f:
+                return f.read().strip()
+        return ""
+
+    mac_guardada = cargar_licencia()
+
+    # Si la MAC actual no coincide con la guardada, significa que es una PC nueva o sin licencia
+    if mac_actual != mac_guardada:
+        ctk.set_appearance_mode("System") 
+        ctk.set_default_color_theme("green") 
+
+        ventana_login = ctk.CTk()
+        ventana_login.title("Activación de Software")
+        ventana_login.geometry("400x250")
+        ventana_login.resizable(False, False)
+
+        ctk.CTkLabel(ventana_login, text="Sistema Protegido", font=("Arial", 22, "bold")).pack(pady=(30, 10))
+        ctk.CTkLabel(ventana_login, text="Ingrese la clave de licencia del desarrollador:").pack(pady=5)
+
+        entrada_clave = ctk.CTkEntry(ventana_login, width=200, show="*") # show="*" oculta la clave
+        entrada_clave.pack(pady=10)
+
+        lbl_error = ctk.CTkLabel(ventana_login, text="", text_color="red")
+        lbl_error.pack()
+
+        def verificar_clave():
+            clave_secreta = "D43c29.01" # <--- TU CONTRASEÑA ESTÁ AQUÍ
+            if entrada_clave.get() == clave_secreta:
+                # Si acierta, guardamos el serial de ESTA computadora
+                with open(archivo_licencia, 'w') as f:
+                    f.write(mac_actual)
+                ventana_login.destroy() # Cerramos el login
+                iniciar_programa()      # Abrimos el sistema real
+            else:
+                lbl_error.configure(text="Clave incorrecta. Contacte al creador del programa.")
+
+        ctk.CTkButton(ventana_login, text="Desbloquear Software", command=verificar_clave).pack(pady=10)
+        ventana_login.mainloop()
+    else:
+        # Si el serial coincide, entramos directo sin molestar al usuario
+        iniciar_programa()
+
+def iniciar_programa():
     sistema = SistemaInvernadero() 
-    
     ctk.set_appearance_mode("System") 
     ctk.set_default_color_theme("green") 
-    
     app = VentanaPrincipal(sistema) 
     app.mainloop() 
 
