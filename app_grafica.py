@@ -4,6 +4,38 @@ import customtkinter as ctk
 from tkinter import messagebox 
 import uuid
 import os
+import hashlib
+import hmac
+
+# ========================================== 
+# 0. LICENCIAS POR CLIENTE
+# ==========================================
+# SECRET_KEY es tuyo y de nadie más. Es lo que te permite generar claves
+# válidas para cada invernadero. NUNCA lo subas a un repo público, ni lo
+# compartas, ni lo cambies sin razón (si lo cambias, todas las claves que
+# ya diste dejan de funcionar).
+SECRET_KEY = b"DANIEL-PRIMER_PROGRAMA-LICENCIA-INVERNADERO-2026"
+
+
+def obtener_id_maquina():
+    """Identificador corto y estable de esta computadora (no es 100% infalible,
+    pero alcanza para este caso: cambia solo si cambia la tarjeta de red)."""
+    mac = str(uuid.getnode())
+    return hashlib.sha256(mac.encode()).hexdigest()[:12].upper()
+
+
+def generar_clave_licencia(id_maquina, nombre_cliente, secreto=SECRET_KEY):
+    """Esto lo corres TÚ en tu propia PC (ver generador_licencias.py), nunca
+    dentro del programa que le entregas a un cliente."""
+    mensaje = f"{id_maquina.strip().upper()}:{nombre_cliente.strip().lower()}".encode()
+    firma = hmac.new(secreto, mensaje, hashlib.sha256).hexdigest()[:16].upper()
+    return firma
+
+
+def verificar_clave_licencia(id_maquina, nombre_cliente, clave_ingresada, secreto=SECRET_KEY):
+    esperada = generar_clave_licencia(id_maquina, nombre_cliente, secreto)
+    return hmac.compare_digest(esperada, clave_ingresada.strip().upper())
+
 
 # ========================================== 
 # 1. EL MODELO (TUS CLASES DE DATOS) 
@@ -871,65 +903,94 @@ class VentanaPrincipal(ctk.CTk):
                              fg_color=("gray85", "gray25"), corner_radius=5).pack(fill="x", pady=5, ipadx=10, ipady=10) 
 
 # ========================================== 
-# 3. EL CONTROLADOR (MAIN) 
+
 # ========================================== 
+# 3. EL CONTROLADOR (MAIN) CON SEGURIDAD POR CLIENTE
 # ========================================== 
-# 3. EL CONTROLADOR (MAIN) CON SEGURIDAD
-# ========================================== 
-def main(): 
+def main():
     archivo_licencia = "licencia.key"
-    # Leemos la dirección MAC (serial físico único) de la computadora actual
-    mac_actual = str(uuid.getnode()) 
+    id_maquina = obtener_id_maquina()
 
     def cargar_licencia():
         if os.path.exists(archivo_licencia):
-            with open(archivo_licencia, 'r') as f:
-                return f.read().strip()
-        return ""
+            try:
+                with open(archivo_licencia, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError):
+                return None
+        return None
 
-    mac_guardada = cargar_licencia()
+    datos_licencia = cargar_licencia()
+    licencia_valida = (
+        datos_licencia is not None
+        and datos_licencia.get('id_maquina') == id_maquina
+        and verificar_clave_licencia(
+            id_maquina, datos_licencia.get('nombre_cliente', ''), datos_licencia.get('clave', '')
+        )
+    )
 
-    # Si la MAC actual no coincide con la guardada, significa que es una PC nueva o sin licencia
-    if mac_actual != mac_guardada:
-        ctk.set_appearance_mode("System") 
-        ctk.set_default_color_theme("green") 
+    if licencia_valida:
+        iniciar_programa(datos_licencia.get('nombre_cliente', ''))
+        return
 
-        ventana_login = ctk.CTk()
-        ventana_login.title("Activación de Software")
-        ventana_login.geometry("400x250")
-        ventana_login.resizable(False, False)
+    ctk.set_appearance_mode("System")
+    ctk.set_default_color_theme("green")
 
-        ctk.CTkLabel(ventana_login, text="Sistema Protegido", font=("Arial", 22, "bold")).pack(pady=(30, 10))
-        ctk.CTkLabel(ventana_login, text="Ingrese la clave de licencia del desarrollador:").pack(pady=5)
+    ventana_login = ctk.CTk()
+    ventana_login.title("Activación de Software")
+    ventana_login.geometry("440x340")
+    ventana_login.resizable(False, False)
 
-        entrada_clave = ctk.CTkEntry(ventana_login, width=200, show="*") # show="*" oculta la clave
-        entrada_clave.pack(pady=10)
+    ctk.CTkLabel(ventana_login, text="Sistema Protegido", font=("Arial", 22, "bold")).pack(pady=(25, 5))
+    ctk.CTkLabel(
+        ventana_login,
+        text=f"ID de esta computadora:\n{id_maquina}",
+        font=("Consolas", 13, "bold"),
+        justify="center",
+    ).pack(pady=(5, 15))
+    ctk.CTkLabel(
+        ventana_login,
+        text="Envía ese ID al desarrollador para recibir tu clave.",
+        font=("Arial", 11),
+        text_color="gray",
+    ).pack(pady=(0, 10))
 
-        lbl_error = ctk.CTkLabel(ventana_login, text="", text_color="red")
-        lbl_error.pack()
+    ctk.CTkLabel(ventana_login, text="Nombre del invernadero:").pack(pady=(5, 0))
+    entrada_nombre = ctk.CTkEntry(ventana_login, width=260)
+    entrada_nombre.pack(pady=5)
 
-        def verificar_clave():
-            clave_secreta = "D43c29.01" # <--- TU CONTRASEÑA ESTÁ AQUÍ
-            if entrada_clave.get() == clave_secreta:
-                # Si acierta, guardamos el serial de ESTA computadora
-                with open(archivo_licencia, 'w') as f:
-                    f.write(mac_actual)
-                ventana_login.destroy() # Cerramos el login
-                iniciar_programa()      # Abrimos el sistema real
-            else:
-                lbl_error.configure(text="Clave incorrecta. Contacte al creador del programa.")
+    ctk.CTkLabel(ventana_login, text="Clave de licencia:").pack(pady=(5, 0))
+    entrada_clave = ctk.CTkEntry(ventana_login, width=260)
+    entrada_clave.pack(pady=5)
 
-        ctk.CTkButton(ventana_login, text="Desbloquear Software", command=verificar_clave).pack(pady=10)
-        ventana_login.mainloop()
-    else:
-        # Si el serial coincide, entramos directo sin molestar al usuario
-        iniciar_programa()
+    lbl_error = ctk.CTkLabel(ventana_login, text="", text_color="red")
+    lbl_error.pack(pady=(5, 0))
 
-def iniciar_programa():
+    def verificar():
+        nombre = entrada_nombre.get().strip()
+        clave = entrada_clave.get().strip()
+        if not nombre or not clave:
+            lbl_error.configure(text="Completa ambos campos.")
+            return
+        if verificar_clave_licencia(id_maquina, nombre, clave):
+            with open(archivo_licencia, 'w', encoding='utf-8') as f:
+                json.dump({'id_maquina': id_maquina, 'nombre_cliente': nombre, 'clave': clave}, f)
+            ventana_login.destroy()
+            iniciar_programa(nombre)
+        else:
+            lbl_error.configure(text="Clave incorrecta para este invernadero/computadora.")
+
+    ctk.CTkButton(ventana_login, text="Activar", command=verificar).pack(pady=15)
+    ventana_login.mainloop()
+
+
+def iniciar_programa(nombre_cliente=""):
     sistema = SistemaInvernadero() 
     ctk.set_appearance_mode("System") 
     ctk.set_default_color_theme("green") 
-    app = VentanaPrincipal(sistema) 
+    app = VentanaPrincipal(sistema)
+    if nombre_cliente:
+        app.title(f"Sistema de Gestión - Invernadero  |  Licenciado a: {nombre_cliente}")
     app.mainloop() 
 
 if __name__ == "__main__": 
