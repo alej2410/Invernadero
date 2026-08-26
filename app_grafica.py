@@ -938,7 +938,7 @@ def main():
 
     ventana_login = ctk.CTk()
     ventana_login.title("Activación de Software")
-    ventana_login.geometry("440x340")
+    ventana_login.geometry("440x450")
     ventana_login.resizable(False, False)
 
     ctk.CTkLabel(ventana_login, text="Sistema Protegido", font=("Arial", 22, "bold")).pack(pady=(25, 5))
