@@ -1,5 +1,5 @@
 
-from app_grafica import Cliente, Pedido, PartePedido
+from modelos import Cliente, Pedido, PartePedido
 
 
 def crear_pedido_de_prueba():
