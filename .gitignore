@@ -4,6 +4,7 @@ build/
 dist/
 *.spec
 *.exe
+*.zip
 
 # Base de datos local 
 datos_invernadero.json
