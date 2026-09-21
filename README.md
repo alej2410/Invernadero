@@ -1,164 +1,225 @@
+
 # 🌱 Sistema de Gestión para Invernadero
 
-Aplicación de escritorio desarrollada en Python para facilitar la administración diaria de un invernadero.
+Aplicación de escritorio desarrollada en Python para digitalizar la gestión de clientes, pedidos, siembras, entregas y pagos de un invernadero.
 
-El sistema permite gestionar clientes, pedidos de plantas, fechas de siembra y entrega, pagos pendientes e inventario activo desde una interfaz gráfica sencilla.
+El proyecto surge de una necesidad real: reemplazar los registros en cuadernos físicos por un sistema que permita consultar y organizar la información de manera más sencilla.
 
-Actualmente funciona de forma local y almacena la información en un archivo JSON.
+Actualmente funciona de forma local, con una interfaz gráfica desarrollada en CustomTkinter y almacenamiento en JSON.
 
-## ✨ Funcionalidades
+## Funcionalidades
 
-### 👥 Gestión de clientes
+### Gestión de clientes
 
-* Registrar nuevos clientes.
-* Guardar nombre, teléfono, cédula y ubicación.
-* Buscar clientes por nombre.
-* Editar la información de clientes existentes.
-* Consultar el historial completo de pedidos de cada cliente.
+- Registro de clientes con nombre, teléfono, cédula y ubicación.
+- Búsqueda parcial por nombre.
+- Edición de información.
+- Identificadores únicos (UUID).
+- Soporte para clientes con nombres repetidos.
+- Consulta del historial de pedidos.
 
-### 📦 Gestión de pedidos
+### Gestión de pedidos
 
-Cada cliente puede tener múltiples pedidos y cada pedido puede contener diferentes tipos de plantas.
+Cada cliente puede tener múltiples pedidos, y cada pedido puede contener diferentes especies de plantas.
 
 Para cada parte del pedido se registra:
 
-* Especie.
-* Cantidad de bandejas.
-* Precio por bandeja.
-* Fecha de siembra.
-* Fecha estimada de entrega.
-* Ubicación dentro del invernadero.
-* Estado de entrega.
+- Especie.
+- Cantidad de bandejas.
+- Precio por bandeja.
+- Fecha de siembra.
+- Fecha estimada de entrega.
+- Ubicación dentro del invernadero.
+- Estado de entrega.
 
-También es posible actualizar posteriormente la ubicación, las fechas y marcar las plantas como entregadas.
+El sistema permite actualizar las fechas, la ubicación y el estado de entrega de cada parte del pedido.
 
-### 💰 Pagos y abonos
+### Pagos y abonos
 
-El sistema permite:
+- Cálculo automático del total de cada pedido.
+- Registro de abonos parciales.
+- Historial de pagos.
+- Cálculo del saldo pendiente.
+- Validación para impedir abonos superiores al saldo.
 
-* Registrar abonos parciales.
-* Mantener un historial de pagos.
-* Calcular automáticamente el total de cada pedido.
-* Consultar cuánto ha pagado el cliente.
-* Calcular el saldo pendiente.
+Los importes se manejan mediante `Decimal` para evitar los errores de representación propios de los números de punto flotante.
 
-El sistema evita registrar abonos superiores a la deuda actual del pedido.
+### Reportes
 
-### 📊 Reportes
+**Deudores**
 
-Actualmente se incluyen dos reportes principales.
+Permite consultar los clientes con saldos pendientes, sus deudas individuales y el total global por cobrar.
 
-#### Deudores
+**Inventario activo**
 
-Permite consultar:
+Muestra las bandejas que todavía no han sido entregadas, agrupadas por especie y cliente.
 
-* Clientes con saldo pendiente.
-* Deuda individual.
-* Total global por cobrar.
-* Plantas pendientes asociadas al cliente.
+Los clientes se distinguen internamente mediante UUID para evitar que se mezclen las cantidades de personas con nombres idénticos.
 
-#### Inventario activo
+## Tecnologías
 
-Muestra todas las bandejas que todavía no han sido entregadas, agrupadas por especie y cliente.
+| Tecnología | Utilización |
+|---|---|
+| Python | Lenguaje principal |
+| CustomTkinter | Interfaz gráfica |
+| Tkinter | Cuadros de diálogo |
+| JSON | Persistencia local |
+| Decimal | Cálculos monetarios |
+| UUID | Identificación de clientes |
+| pytest | Pruebas automatizadas |
 
-Esto permite conocer rápidamente cuántas bandejas permanecen activas dentro del invernadero.
+El proyecto utiliza también módulos de la biblioteca estándar de Python para la gestión de archivos, fechas y licencias.
 
-## 🔐 Activación
-
-La aplicación incorpora un sistema de activación local asociado al equipo donde se instala.
-
-Al ejecutarse por primera vez muestra un identificador de la computadora y solicita:
-
-* Nombre del invernadero.
-* Clave de licencia.
-
-Una vez activado correctamente, los datos de activación se almacenan localmente.
-
-## 🛠️ Tecnologías
-
-* **Python 3**
-* **CustomTkinter** — interfaz gráfica
-* **Tkinter** — cuadros de diálogo
-* **JSON** — persistencia local
-* **HMAC / SHA-256** — mecanismo actual de validación de licencias
-
-El resto de los módulos utilizados pertenecen a la biblioteca estándar de Python.
-
-## 📁 Estructura actual
+## Estructura del proyecto
 
 ```text
 Invernadero/
 │
 ├── app_grafica.py
+├── modelos.py
+├── sistema.py
+├── validaciones.py
+├── licencias.py
+│
+├── tests/
+│   ├── test_clientes.py
+│   ├── test_dinero.py
+│   ├── test_fechas.py
+│   ├── test_guardado_seguro.py
+│   ├── test_inventario.py
+│   ├── test_pedidos.py
+│   └── test_persistencia.py
+│
 ├── README.md
 ├── .gitignore
 └── .gitattributes
 ```
 
-`app_grafica.py` contiene actualmente la lógica del sistema, modelos de datos, persistencia, interfaz gráfica y sistema de activación.
+### Organización del código
 
-## 🚀 Instalación para desarrollo
+- `app_grafica.py`: interfaz gráfica y arranque de la aplicación.
+- `modelos.py`: clases Cliente, Pedido y PartePedido.
+- `sistema.py`: gestión de clientes, persistencia y reportes.
+- `validaciones.py`: validación de fechas opcionales.
+- `licencias.py`: funciones de identificación del equipo y verificación de licencias.
+- `tests/`: pruebas automatizadas de la lógica y la persistencia.
 
-Clona el repositorio:
+## Instalación para desarrollo
+
+### 1. Clonar el repositorio
 
 ```bash
 git clone https://github.com/alej2410/Invernadero.git
 cd Invernadero
 ```
 
-Crea un entorno virtual:
+### 2. Crear un entorno virtual
 
 ```bash
 python -m venv .venv
 ```
 
-Actívalo en Windows:
+En Windows, activarlo con:
 
-```bash
-.venv\Scripts\activate
+```powershell
+.\.venv\Scripts\Activate.ps1
 ```
 
-Instala CustomTkinter:
+### 3. Instalar dependencias
 
 ```bash
-pip install customtkinter
+python -m pip install customtkinter pytest
 ```
 
-Ejecuta la aplicación:
+### 4. Ejecutar la aplicación
 
 ```bash
 python app_grafica.py
 ```
 
-## 💾 Persistencia de datos
+La aplicación requiere una licencia válida para acceder a sus funcionalidades.
 
-Los datos se almacenan localmente en:
+## Pruebas automatizadas
+
+El proyecto utiliza `pytest` para comprobar diferentes comportamientos del sistema.
+
+Ejecutar todas las pruebas:
+
+```bash
+python -m pytest -v
+```
+
+Las pruebas actuales cubren:
+
+- Cálculos de pedidos.
+- Registro y cálculo de abonos.
+- Persistencia de datos.
+- Identificadores únicos.
+- Independencia de clientes con nombres repetidos.
+- Inventario activo.
+- Validación de fechas.
+- Conservación de importes decimales.
+- Manejo de errores durante el guardado de archivos.
+
+Las pruebas de persistencia utilizan directorios temporales para evitar modificar los datos locales del usuario.
+
+## Persistencia
+
+La aplicación almacena su información en:
 
 ```text
 datos_invernadero.json
 ```
 
-Este archivo contiene clientes, pedidos, partes de pedidos y abonos.
+El archivo contiene los clientes, sus pedidos y sus abonos.
 
-El archivo se encuentra excluido del repositorio mediante `.gitignore`, por lo que los datos reales de cada instalación no se publican accidentalmente en GitHub.
+Los importes monetarios se guardan como cadenas decimales y se recuperan como objetos `Decimal`.
 
-El archivo local de licencia también se encuentra excluido.
+### Guardado seguro
 
-## 🖥️ Alcance actual
+El sistema utiliza archivos temporales y `os.replace()` para evitar sobrescribir directamente el JSON original durante la escritura.
 
-La versión actual está diseñada como una aplicación de escritorio para utilizarse localmente en un invernadero.
+Si ocurre un error antes de completar el reemplazo, se conserva el archivo anterior.
+
+Este mecanismo no sustituye un sistema de copias de seguridad.
+
+El archivo de datos y la licencia local están excluidos del repositorio mediante `.gitignore`.
+
+## Activación
+
+La aplicación dispone de un mecanismo de activación local asociado al identificador del equipo.
+
+Para activar una instalación se necesita una licencia proporcionada por el desarrollador.
+
+El mecanismo de licencias se encuentra en revisión y no debe considerarse una protección resistente frente a la ingeniería inversa.
+
+## Estado y alcance
+
+El proyecto se encuentra en desarrollo.
 
 Actualmente:
 
-* Funciona en una sola computadora.
-* Utiliza almacenamiento JSON local.
-* No requiere conexión a Internet.
-* No utiliza servidor.
-* No utiliza base de datos externa.
-* No incluye todavía sincronización entre dispositivos.
+- Es una aplicación de escritorio.
+- Funciona localmente.
+- No requiere Internet para gestionar los datos.
+- No dispone de sincronización entre equipos.
+- No utiliza una base de datos SQL.
+- No incluye una interfaz web.
 
-## 📌 Estado del proyecto
+La aplicación ha sido desarrollada y probada en Windows con Python 3.14.
 
-El proyecto se encuentra en desarrollo activo.
+## Próximas mejoras
 
-La versión actual constituye una primera implementación funcional para digitalizar tareas que normalmente se realizan manualmente, como el seguimiento de clientes, pedidos, siembras, entregas, pagos e inventario.
+- Fortalecer el sistema de licencias.
+- Incorporar copias de seguridad y restauración.
+- Ampliar las validaciones de datos.
+- Mejorar la distribución e instalación.
+- Continuar ampliando las pruebas automatizadas.
+
+Otras funcionalidades se evaluarán según las necesidades que surjan durante el uso del sistema.
+
+## Origen del proyecto
+
+Este proyecto nació a partir de una necesidad de un familiar que administra un invernadero y buscaba una alternativa a los registros manuales de clientes y pedidos.
+
+Además de resolver ese problema, el desarrollo constituye una oportunidad de aprendizaje práctico en programación orientada a objetos, diseño de software, persistencia, pruebas automatizadas y control de versiones.
