@@ -6,6 +6,7 @@ from tkinter import messagebox
 from datetime import datetime
 from sistema import SistemaInvernadero
 from licencias import obtener_id_maquina, verificar_clave_licencia
+from validaciones import validar_fecha_opcional
 # ========================================== 
 # 2. LA VISTA (INTERFAZ GRÁFICA) 
 # ========================================== 
@@ -738,7 +739,6 @@ class VentanaPrincipal(ctk.CTk):
 
             especie = ent_especie.get().strip() 
             ubicacion = ent_ubicacion.get().strip() 
-            fecha_est = ent_fecha_estimada.get().strip()
             
             try: 
                 cantidad = int(ent_cantidad.get().strip()) 
@@ -753,6 +753,19 @@ class VentanaPrincipal(ctk.CTk):
             if not fecha: 
                 lbl_error_form.configure(text="Error: Fecha inválida. Use DD/MM/YYYY.", text_color="red") 
                 return 
+            
+            # Validar fecha estimada de entrega.
+            try:
+                fecha_est = validar_fecha_opcional(
+                    ent_fecha_estimada.get()
+                )
+
+            except ValueError:
+                lbl_error_form.configure(
+                    text="Error: Fecha estimada inválida. Use DD/MM/YYYY.",
+                    text_color="red"
+                )
+                return
             
             if not especie or not ubicacion: 
                 lbl_error_form.configure(text="Especie y Ubicación son obligatorias.", text_color="red") 
