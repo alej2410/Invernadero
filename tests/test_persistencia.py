@@ -1,5 +1,5 @@
 
-from app_grafica import SistemaInvernadero
+from sistema import SistemaInvernadero
 from modelos import Cliente, Pedido, PartePedido
 
 
