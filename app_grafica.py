@@ -51,60 +51,153 @@ class VentanaPrincipal(ctk.CTk):
         except ValueError: 
             return None 
 
-    def abrir_crear_cliente(self): 
-        if getattr(self, "v_crear_activa", None) and self.v_crear_activa.winfo_exists(): 
-            self.v_crear_activa.focus() 
-            return 
-        ventana_crear = ctk.CTkToplevel(self) 
-        self.v_crear_activa = ventana_crear 
-        ventana_crear.title("Crear Nuevo Cliente") 
-        ventana_crear.geometry("450x450") 
-        ventana_crear.grab_set() 
+    
+    def abrir_crear_cliente(self):
+        if getattr(self, "v_crear_activa", None) and self.v_crear_activa.winfo_exists():
+            self.v_crear_activa.focus()
+            return
 
-        ctk.CTkLabel(ventana_crear, text="Registrar Cliente", font=("Arial", 20, "bold")).pack(pady=20) 
+        ventana_crear = ctk.CTkToplevel(self)
+        self.v_crear_activa = ventana_crear
 
-        entrada_nombre = ctk.CTkEntry(ventana_crear, placeholder_text="Nombre del cliente (*)", width=250) 
-        entrada_nombre.pack(pady=10) 
+        ventana_crear.title("Registrar Cliente")
+        ventana_crear.geometry("480x560")
+        ventana_crear.minsize(380, 420)
+        ventana_crear.resizable(True, True)
+        ventana_crear.grab_set()
 
-        entrada_telefono = ctk.CTkEntry(ventana_crear, placeholder_text="Teléfono (*)", width=250) 
-        entrada_telefono.pack(pady=10) 
+        # Contenedor adaptable con desplazamiento vertical.
+        contenido = ctk.CTkScrollableFrame(ventana_crear)
+        contenido.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=20
+        )
 
-        entrada_cedula = ctk.CTkEntry(ventana_crear, placeholder_text="Cédula (Opcional)", width=250)
-        entrada_cedula.pack(pady=10)
+        contenido.grid_columnconfigure(0, weight=1)
 
-        entrada_direccion = ctk.CTkEntry(ventana_crear, placeholder_text="Ubicación/Pueblo (Opcional)", width=250)
-        entrada_direccion.pack(pady=10)
+        ctk.CTkLabel(
+            contenido,
+            text="Registrar Cliente",
+            font=("Arial", 22, "bold")
+        ).grid(row=0, column=0, pady=(10, 25))
 
-        label_mensaje = ctk.CTkLabel(ventana_crear, text="", font=("Arial", 12)) 
-        label_mensaje.pack(pady=5) 
+        def crear_campo(fila, etiqueta, ejemplo):
+            ctk.CTkLabel(
+                contenido,
+                text=etiqueta,
+                anchor="w"
+            ).grid(
+                row=fila,
+                column=0,
+                sticky="ew",
+                padx=10,
+                pady=(8, 2)
+            )
 
-        def guardar_cliente(): 
-            nombre = entrada_nombre.get().strip() 
-            telefono = entrada_telefono.get().strip() 
+            entrada = ctk.CTkEntry(
+                contenido,
+                placeholder_text=ejemplo,
+                height=35
+            )
+            entrada.grid(
+                row=fila + 1,
+                column=0,
+                sticky="ew",
+                padx=10,
+                pady=(0, 8)
+            )
+
+            return entrada
+
+        entrada_nombre = crear_campo(
+            1, "Nombre del cliente *", "Ej. José Pérez"
+        )
+
+        entrada_telefono = crear_campo(
+            3, "Teléfono *", "Ej. 04141234567"
+        )
+
+        entrada_cedula = crear_campo(
+            5, "Cédula (opcional)", "Ej. V-12345678"
+        )
+
+        entrada_direccion = crear_campo(
+            7, "Ubicación / Pueblo (opcional)", "Ej. Táriba"
+        )
+
+        label_mensaje = ctk.CTkLabel(
+            contenido,
+            text="",
+            font=("Arial", 12),
+            wraplength=300
+        )
+        label_mensaje.grid(
+            row=9,
+            column=0,
+            sticky="ew",
+            padx=10,
+            pady=10
+        )
+
+        def guardar_cliente():
+            nombre = entrada_nombre.get().strip()
+            telefono = entrada_telefono.get().strip()
             cedula = entrada_cedula.get().strip()
             direccion = entrada_direccion.get().strip()
 
-            if not nombre or not telefono: 
-                label_mensaje.configure(text="Error: Nombre y Teléfono son obligatorios.", text_color="red") 
-                return 
+            if not nombre or not telefono:
+                label_mensaje.configure(
+                    text="Nombre y teléfono son obligatorios.",
+                    text_color="red"
+                )
+                return
 
-            if self.sistema.encontrar_cliente(nombre): 
-                label_mensaje.configure(text=f"Error: Ya existe '{nombre}'. Agregue un apellido.", text_color="red") 
-                return 
+            if self.sistema.encontrar_cliente(nombre):
+                label_mensaje.configure(
+                    text=f"Ya existe '{nombre}'. Agregue un apellido.",
+                    text_color="red"
+                )
+                return
 
-            nuevo_cliente = Cliente(nombre, telefono, cedula, direccion) 
-            self.sistema.clientes.append(nuevo_cliente) 
-            self.sistema.guardar_datos() 
+            nuevo_cliente = Cliente(
+                nombre, telefono, cedula, direccion
+            )
 
-            label_mensaje.configure(text=f"¡Cliente '{nombre}' creado con éxito!", text_color="green") 
-            
-            entrada_nombre.delete(0, 'end') 
-            entrada_telefono.delete(0, 'end') 
-            entrada_cedula.delete(0, 'end')
-            entrada_direccion.delete(0, 'end')
+            self.sistema.clientes.append(nuevo_cliente)
+            self.sistema.guardar_datos()
 
-        btn_guardar = ctk.CTkButton(ventana_crear, text="Guardar Cliente", command=guardar_cliente) 
-        btn_guardar.pack(pady=15) 
+            label_mensaje.configure(
+                text=f"¡Cliente '{nombre}' creado con éxito!",
+                text_color="green"
+            )
+
+            for entrada in (
+                entrada_nombre,
+                entrada_telefono,
+                entrada_cedula,
+                entrada_direccion
+            ):
+                entrada.delete(0, "end")
+
+            entrada_nombre.focus_set()
+
+        ctk.CTkButton(
+            contenido,
+            text="Guardar Cliente",
+            height=42,
+            command=guardar_cliente
+        ).grid(
+            row=10,
+            column=0,
+            sticky="ew",
+            padx=10,
+            pady=(10, 20)
+        )
+
+        entrada_nombre.focus_set()
+   
 
     def abrir_buscar_cliente(self): 
         if getattr(self, "v_buscar_activa", None) and self.v_buscar_activa.winfo_exists(): 
