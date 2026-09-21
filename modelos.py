@@ -1,15 +1,19 @@
 from datetime import datetime
+import uuid
 
 class Cliente: 
-    def __init__(self, nombre, telefono, cedula="", direccion=""): 
-        self.nombre = nombre 
-        self.telefono = telefono 
+
+    def __init__(self, nombre, telefono, cedula="", direccion="", id=None):
+        self.id = id if id is not None else str(uuid.uuid4())
+        self.nombre = nombre
+        self.telefono = telefono
         self.cedula = cedula
         self.direccion = direccion
         self.pedidos = [] 
 
     def to_dict(self): 
         return { 
+            'id': self.id,
             'nombre': self.nombre, 
             'telefono': self.telefono, 
             'cedula': self.cedula,

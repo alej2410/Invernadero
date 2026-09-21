@@ -34,8 +34,9 @@ class SistemaInvernadero:
                 datos_cliente['nombre'], 
                 datos_cliente['telefono'],
                 datos_cliente.get('cedula', ''),
-                datos_cliente.get('direccion', '')
-            ) 
+                datos_cliente.get('direccion', ''),
+                id=datos_cliente['id']
+            )
             for datos_pedido in datos_cliente.get('pedidos', []): 
                 pedido = Pedido(cliente) 
                 pedido.fecha = datos_pedido.get('fecha', pedido.fecha) 

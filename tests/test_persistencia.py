@@ -1,4 +1,4 @@
-
+import json
 from sistema import SistemaInvernadero
 from modelos import Cliente, Pedido, PartePedido
 
@@ -41,6 +41,7 @@ def test_guardar_y_cargar_datos(tmp_path, monkeypatch):
 
     cliente_recuperado = sistema_recuperado.clientes[0]
 
+    assert cliente_recuperado.id == cliente.id
     assert cliente_recuperado.nombre == "Juan Pérez"
     assert cliente_recuperado.telefono == "04141234567"
     assert len(cliente_recuperado.pedidos) == 1
@@ -53,3 +54,11 @@ def test_guardar_y_cargar_datos(tmp_path, monkeypatch):
 
     assert pedido_recuperado.partes[0].especie == "Tomate"
     assert pedido_recuperado.partes[0].ubicacion == "A1"
+
+def test_clientes_tienen_ids_unicos():
+    cliente1 = Cliente("José Pérez", "04140000001")
+    cliente2 = Cliente("José Pérez", "04140000002")
+
+    assert cliente1.id
+    assert cliente2.id
+    assert cliente1.id != cliente2.id
