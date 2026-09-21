@@ -154,13 +154,6 @@ class VentanaPrincipal(ctk.CTk):
                 )
                 return
 
-            if self.sistema.encontrar_cliente(nombre):
-                label_mensaje.configure(
-                    text=f"Ya existe '{nombre}'. Agregue un apellido.",
-                    text_color="red"
-                )
-                return
-
             nuevo_cliente = Cliente(
                 nombre, telefono, cedula, direccion
             )
@@ -298,11 +291,6 @@ class VentanaPrincipal(ctk.CTk):
                     if not n_nom or not n_tel:
                         lbl_msg_edit.configure(text="Nombre y teléfono obligatorios.", text_color="red")
                         return
-                    
-                    if n_nom.lower() != c_obj.nombre.lower():
-                        if self.sistema.encontrar_cliente(n_nom):
-                            lbl_msg_edit.configure(text="Ya existe alguien con ese nombre.", text_color="red")
-                            return
                     
                     c_obj.nombre, c_obj.telefono, c_obj.cedula, c_obj.direccion = n_nom, n_tel, n_ced, n_dir
                     self.sistema.guardar_datos()
