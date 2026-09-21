@@ -124,7 +124,7 @@ class VentanaPrincipal(ctk.CTk):
         )
 
         entrada_direccion = crear_campo(
-            7, "Ubicación / Pueblo (opcional)", "Ej. Táriba"
+            7, "Ubicación / Pueblo (opcional)", "Ej. Venegara"
         )
 
         label_mensaje = ctk.CTkLabel(
