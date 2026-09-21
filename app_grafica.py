@@ -1,240 +1,13 @@
-import json 
-from datetime import datetime 
-import customtkinter as ctk 
-from tkinter import messagebox 
-import uuid
+import json
+import customtkinter as ctk
 import os
-import hashlib
-import hmac
-
-# ========================================== 
-# 0. LICENCIAS POR CLIENTE
-# ==========================================
-# SECRET_KEY es tuyo y de nadie más. Es lo que te permite generar claves
-# válidas para cada invernadero. NUNCA lo subas a un repo público, ni lo
-# compartas, ni lo cambies sin razón (si lo cambias, todas las claves que
-# ya diste dejan de funcionar).
-SECRET_KEY = b"DANIEL-PRIMER_PROGRAMA-LICENCIA-INVERNADERO-2026"
-
-
-def obtener_id_maquina():
-    """Identificador corto y estable de esta computadora (no es 100% infalible,
-    pero alcanza para este caso: cambia solo si cambia la tarjeta de red)."""
-    mac = str(uuid.getnode())
-    return hashlib.sha256(mac.encode()).hexdigest()[:12].upper()
-
-
-def generar_clave_licencia(id_maquina, nombre_cliente, secreto=SECRET_KEY):
-    """Esto lo corres TÚ en tu propia PC (ver generador_licencias.py), nunca
-    dentro del programa que le entregas a un cliente."""
-    mensaje = f"{id_maquina.strip().upper()}:{nombre_cliente.strip().lower()}".encode()
-    firma = hmac.new(secreto, mensaje, hashlib.sha256).hexdigest()[:16].upper()
-    return firma
-
-
-def verificar_clave_licencia(id_maquina, nombre_cliente, clave_ingresada, secreto=SECRET_KEY):
-    esperada = generar_clave_licencia(id_maquina, nombre_cliente, secreto)
-    return hmac.compare_digest(esperada, clave_ingresada.strip().upper())
-
-
-# ========================================== 
-# 1. EL MODELO (TUS CLASES DE DATOS) 
-# ========================================== 
-
-class SistemaInvernadero: 
-    def __init__(self): 
-        self.clientes = [] 
-        self.archivo_datos = "datos_invernadero.json" 
-        self.cargar_datos() 
-
-    def guardar_datos(self): 
-        datos = { 
-            'clientes': [cliente.to_dict() for cliente in self.clientes] 
-        } 
-        with open(self.archivo_datos, 'w', encoding='utf-8') as archivo: 
-            json.dump(datos, archivo, ensure_ascii=False, indent=4) 
-
-    def cargar_datos(self): 
-        try: 
-            with open(self.archivo_datos, 'r', encoding='utf-8') as archivo: 
-                datos = json.load(archivo) 
-        except FileNotFoundError: 
-            self.clientes = [] 
-            return 
-
-        clientes_temporales = [] 
-        for datos_cliente in datos.get('clientes', []): 
-            # Lectura a prueba de fallos para clientes viejos
-            cliente = Cliente(
-                datos_cliente['nombre'], 
-                datos_cliente['telefono'],
-                datos_cliente.get('cedula', ''),
-                datos_cliente.get('direccion', '')
-            ) 
-            for datos_pedido in datos_cliente.get('pedidos', []): 
-                pedido = Pedido(cliente) 
-                pedido.fecha = datos_pedido.get('fecha', pedido.fecha) 
-                for datos_parte in datos_pedido.get('partes', []): 
-                    parte = PartePedido( 
-                        datos_parte['especie'], 
-                        datos_parte['cantidad'], 
-                        datos_parte['precio'], 
-                        datos_parte['fecha_siembra'], 
-                        datos_parte['ubicacion'], 
-                        datos_parte.get('entregado', False),
-                        datos_parte.get('fecha_estimada', '')
-                    ) 
-                    pedido.agregar_parte(parte) 
-                pedido.abonos = datos_pedido.get('abonos', []) 
-                cliente.pedidos.append(pedido) 
-            clientes_temporales.append(cliente) 
-        
-        self.clientes = clientes_temporales 
-
-    def encontrar_clientes_parcial(self, busqueda):
-        """Busca cualquier coincidencia parcial en el nombre y devuelve una lista"""
-        busqueda = busqueda.lower().strip()
-        if not busqueda:
-            return self.clientes 
-        
-        resultados = []
-        for cliente in self.clientes:
-            if busqueda in cliente.nombre.lower():
-                resultados.append(cliente)
-        return resultados
-
-    def encontrar_cliente(self, nombre): 
-        for cliente in self.clientes: 
-            if cliente.nombre.lower() == nombre.lower(): 
-                return cliente 
-        return None 
-
-    def reporte_deudores(self): 
-        deudores = [] 
-        total_global_deuda = 0 
-        for cliente in self.clientes: 
-            deuda_cliente = 0 
-            resumen_plantas = {} 
-            for pedido in cliente.pedidos: 
-                deuda_cliente += pedido.saldo_pendiente() 
-                for parte in pedido.partes: 
-                    if not parte.entregado: 
-                        esp = parte.especie.lower().strip() 
-                        resumen_plantas[esp] = resumen_plantas.get(esp, 0) + parte.cantidad 
-            if deuda_cliente > 0: 
-                deudores.append({ 
-                    'nombre': cliente.nombre, 
-                    'telefono': cliente.telefono, 
-                    'deuda': deuda_cliente, 
-                    'plantas': resumen_plantas 
-                }) 
-                total_global_deuda += deuda_cliente 
-        deudores.sort(key=lambda x: x['deuda'], reverse=True) 
-        return deudores, total_global_deuda 
-
-    def reporte_inventario_activo(self): 
-        inventario = {}  
-        for cliente in self.clientes: 
-            for pedido in cliente.pedidos: 
-                for parte in pedido.partes: 
-                    if not parte.entregado: 
-                        especie = parte.especie.lower().strip() 
-                        nombre_cli = cliente.nombre.title() 
-                        if especie not in inventario: 
-                            inventario[especie] = {"total": 0, "clientes": {}} 
-                        inventario[especie]["total"] += parte.cantidad 
-                        if nombre_cli not in inventario[especie]["clientes"]: 
-                            inventario[especie]["clientes"][nombre_cli] = 0 
-                        inventario[especie]["clientes"][nombre_cli] += parte.cantidad 
-        return inventario 
-
-
-class Cliente: 
-    def __init__(self, nombre, telefono, cedula="", direccion=""): 
-        self.nombre = nombre 
-        self.telefono = telefono 
-        self.cedula = cedula
-        self.direccion = direccion
-        self.pedidos = [] 
-
-    def to_dict(self): 
-        return { 
-            'nombre': self.nombre, 
-            'telefono': self.telefono, 
-            'cedula': self.cedula,
-            'direccion': self.direccion,
-            'pedidos': [pedido.to_dict() for pedido in self.pedidos] 
-        } 
-
-    def __str__(self): 
-        return f"Cliente: {self.nombre}, Teléfono: {self.telefono}" 
-
-    def saldo_pendiente(self): 
-        return sum(pedido.saldo_pendiente() for pedido in self.pedidos) 
-
-
-class PartePedido: 
-    def __init__(self, especie, cantidad, precio, fecha_siembra, ubicacion, entregado=False, fecha_estimada=""): 
-        self.especie = especie 
-        self.cantidad = cantidad 
-        self.precio = precio 
-        self.fecha_siembra = fecha_siembra 
-        self.ubicacion = ubicacion 
-        self.entregado = entregado 
-        self.fecha_estimada = fecha_estimada
-
-    def calcular_total(self): 
-        return self.cantidad * self.precio 
-
-    def to_dict(self): 
-        return { 
-            'especie': self.especie, 
-            'cantidad': self.cantidad, 
-            'precio': self.precio, 
-            'fecha_siembra': self.fecha_siembra, 
-            'ubicacion': self.ubicacion, 
-            'entregado': self.entregado,
-            'fecha_estimada': self.fecha_estimada
-        } 
-
-
-class Pedido: 
-    def __init__(self, cliente): 
-        self.cliente = cliente 
-        self.partes = [] 
-        self.abonos = [] 
-        self.fecha = datetime.now().strftime("%d/%m/%Y %H:%M:%S") 
-
-    def agregar_parte(self, parte): 
-        self.partes.append(parte) 
-
-    def calcular_total(self): 
-        total = 0 
-        for parte in self.partes: 
-            total += parte.calcular_total() 
-        return total 
-
-    def registrar_abono(self, monto, fecha=None): 
-        if not fecha: 
-            fecha = datetime.now().strftime("%d/%m/%Y") 
-        self.abonos.append({'monto': monto, 'fecha': fecha}) 
-
-    def total_abonado(self): 
-        total = 0 
-        for abono in self.abonos: 
-            total += abono['monto'] 
-        return total 
-
-    def saldo_pendiente(self): 
-        return self.calcular_total() - self.total_abonado() 
-
-    def to_dict(self): 
-        return { 
-            'fecha': self.fecha, 
-            'partes': [parte.to_dict() for parte in self.partes], 
-            'abonos': self.abonos 
-        } 
-
+from modelos import Cliente, PartePedido, Pedido
+from tkinter import messagebox
+from datetime import datetime
+from sistema import SistemaInvernadero
+from licencias import obtener_id_maquina, verificar_clave_licencia
+from validaciones import validar_fecha_opcional
+from decimal import Decimal, InvalidOperation
 # ========================================== 
 # 2. LA VISTA (INTERFAZ GRÁFICA) 
 # ========================================== 
@@ -280,60 +53,146 @@ class VentanaPrincipal(ctk.CTk):
         except ValueError: 
             return None 
 
-    def abrir_crear_cliente(self): 
-        if getattr(self, "v_crear_activa", None) and self.v_crear_activa.winfo_exists(): 
-            self.v_crear_activa.focus() 
-            return 
-        ventana_crear = ctk.CTkToplevel(self) 
-        self.v_crear_activa = ventana_crear 
-        ventana_crear.title("Crear Nuevo Cliente") 
-        ventana_crear.geometry("450x450") 
-        ventana_crear.grab_set() 
+    
+    def abrir_crear_cliente(self):
+        if getattr(self, "v_crear_activa", None) and self.v_crear_activa.winfo_exists():
+            self.v_crear_activa.focus()
+            return
 
-        ctk.CTkLabel(ventana_crear, text="Registrar Cliente", font=("Arial", 20, "bold")).pack(pady=20) 
+        ventana_crear = ctk.CTkToplevel(self)
+        self.v_crear_activa = ventana_crear
 
-        entrada_nombre = ctk.CTkEntry(ventana_crear, placeholder_text="Nombre del cliente (*)", width=250) 
-        entrada_nombre.pack(pady=10) 
+        ventana_crear.title("Registrar Cliente")
+        ventana_crear.geometry("480x560")
+        ventana_crear.minsize(380, 420)
+        ventana_crear.resizable(True, True)
+        ventana_crear.grab_set()
 
-        entrada_telefono = ctk.CTkEntry(ventana_crear, placeholder_text="Teléfono (*)", width=250) 
-        entrada_telefono.pack(pady=10) 
+        # Contenedor adaptable con desplazamiento vertical.
+        contenido = ctk.CTkScrollableFrame(ventana_crear)
+        contenido.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=20
+        )
 
-        entrada_cedula = ctk.CTkEntry(ventana_crear, placeholder_text="Cédula (Opcional)", width=250)
-        entrada_cedula.pack(pady=10)
+        contenido.grid_columnconfigure(0, weight=1)
 
-        entrada_direccion = ctk.CTkEntry(ventana_crear, placeholder_text="Ubicación/Pueblo (Opcional)", width=250)
-        entrada_direccion.pack(pady=10)
+        ctk.CTkLabel(
+            contenido,
+            text="Registrar Cliente",
+            font=("Arial", 22, "bold")
+        ).grid(row=0, column=0, pady=(10, 25))
 
-        label_mensaje = ctk.CTkLabel(ventana_crear, text="", font=("Arial", 12)) 
-        label_mensaje.pack(pady=5) 
+        def crear_campo(fila, etiqueta, ejemplo):
+            ctk.CTkLabel(
+                contenido,
+                text=etiqueta,
+                anchor="w"
+            ).grid(
+                row=fila,
+                column=0,
+                sticky="ew",
+                padx=10,
+                pady=(8, 2)
+            )
 
-        def guardar_cliente(): 
-            nombre = entrada_nombre.get().strip() 
-            telefono = entrada_telefono.get().strip() 
+            entrada = ctk.CTkEntry(
+                contenido,
+                placeholder_text=ejemplo,
+                height=35
+            )
+            entrada.grid(
+                row=fila + 1,
+                column=0,
+                sticky="ew",
+                padx=10,
+                pady=(0, 8)
+            )
+
+            return entrada
+
+        entrada_nombre = crear_campo(
+            1, "Nombre del cliente *", "Ej. José Pérez"
+        )
+
+        entrada_telefono = crear_campo(
+            3, "Teléfono *", "Ej. 04141234567"
+        )
+
+        entrada_cedula = crear_campo(
+            5, "Cédula (opcional)", "Ej. V-12345678"
+        )
+
+        entrada_direccion = crear_campo(
+            7, "Ubicación / Pueblo (opcional)", "Ej. Venegara"
+        )
+
+        label_mensaje = ctk.CTkLabel(
+            contenido,
+            text="",
+            font=("Arial", 12),
+            wraplength=300
+        )
+        label_mensaje.grid(
+            row=9,
+            column=0,
+            sticky="ew",
+            padx=10,
+            pady=10
+        )
+
+        def guardar_cliente():
+            nombre = entrada_nombre.get().strip()
+            telefono = entrada_telefono.get().strip()
             cedula = entrada_cedula.get().strip()
             direccion = entrada_direccion.get().strip()
 
-            if not nombre or not telefono: 
-                label_mensaje.configure(text="Error: Nombre y Teléfono son obligatorios.", text_color="red") 
-                return 
+            if not nombre or not telefono:
+                label_mensaje.configure(
+                    text="Nombre y teléfono son obligatorios.",
+                    text_color="red"
+                )
+                return
 
-            if self.sistema.encontrar_cliente(nombre): 
-                label_mensaje.configure(text=f"Error: Ya existe '{nombre}'. Agregue un apellido.", text_color="red") 
-                return 
+            nuevo_cliente = Cliente(
+                nombre, telefono, cedula, direccion
+            )
 
-            nuevo_cliente = Cliente(nombre, telefono, cedula, direccion) 
-            self.sistema.clientes.append(nuevo_cliente) 
-            self.sistema.guardar_datos() 
+            self.sistema.clientes.append(nuevo_cliente)
+            self.sistema.guardar_datos()
 
-            label_mensaje.configure(text=f"¡Cliente '{nombre}' creado con éxito!", text_color="green") 
-            
-            entrada_nombre.delete(0, 'end') 
-            entrada_telefono.delete(0, 'end') 
-            entrada_cedula.delete(0, 'end')
-            entrada_direccion.delete(0, 'end')
+            label_mensaje.configure(
+                text=f"¡Cliente '{nombre}' creado con éxito!",
+                text_color="green"
+            )
 
-        btn_guardar = ctk.CTkButton(ventana_crear, text="Guardar Cliente", command=guardar_cliente) 
-        btn_guardar.pack(pady=15) 
+            for entrada in (
+                entrada_nombre,
+                entrada_telefono,
+                entrada_cedula,
+                entrada_direccion
+            ):
+                entrada.delete(0, "end")
+
+            entrada_nombre.focus_set()
+
+        ctk.CTkButton(
+            contenido,
+            text="Guardar Cliente",
+            height=42,
+            command=guardar_cliente
+        ).grid(
+            row=10,
+            column=0,
+            sticky="ew",
+            padx=10,
+            pady=(10, 20)
+        )
+
+        entrada_nombre.focus_set()
+   
 
     def abrir_buscar_cliente(self): 
         if getattr(self, "v_buscar_activa", None) and self.v_buscar_activa.winfo_exists(): 
@@ -434,11 +293,6 @@ class VentanaPrincipal(ctk.CTk):
                     if not n_nom or not n_tel:
                         lbl_msg_edit.configure(text="Nombre y teléfono obligatorios.", text_color="red")
                         return
-                    
-                    if n_nom.lower() != c_obj.nombre.lower():
-                        if self.sistema.encontrar_cliente(n_nom):
-                            lbl_msg_edit.configure(text="Ya existe alguien con ese nombre.", text_color="red")
-                            return
                     
                     c_obj.nombre, c_obj.telefono, c_obj.cedula, c_obj.direccion = n_nom, n_tel, n_ced, n_dir
                     self.sistema.guardar_datos()
@@ -562,12 +416,19 @@ class VentanaPrincipal(ctk.CTk):
 
         def registrar_abono_gui(): 
             try: 
-                monto = float(entrada_monto.get().strip()) 
-            except ValueError: 
+                monto = Decimal(entrada_monto.get().strip()) 
+            except (ValueError, InvalidOperation): 
                 lbl_msg_abono.configure(text="Error: Ingrese un monto numérico válido.", text_color="red") 
                 return 
 
             saldo_actual = pedido.saldo_pendiente() 
+
+            if not monto.is_finite():
+                lbl_msg_abono.configure(
+                    text="Error: Ingrese un monto válido.",
+                    text_color="red"
+                    )
+                return
 
             if monto <= 0: 
                 lbl_msg_abono.configure(text="Error: El monto debe ser mayor a cero.", text_color="red") 
@@ -604,34 +465,59 @@ class VentanaPrincipal(ctk.CTk):
         scroll_actualizar = ctk.CTkScrollableFrame(tab_actualizar) 
         scroll_actualizar.pack(fill="both", expand=True, pady=5, padx=10) 
 
-        def actualizar_parte(parte_obj, ent_ub, ent_fs, ent_fe, check_ent): 
-            parte_obj.ubicacion = ent_ub.get().strip() 
-            
-            fs_str = ent_fs.get().strip()
-            if fs_str:
+
+        def actualizar_parte(parte_obj, ent_ub, ent_fs, ent_fe, check_ent):
+
+            # 1. Leer todos los campos sin modificar el pedido.
+            nueva_ubicacion = ent_ub.get().strip()
+            nueva_fecha_siembra = ent_fs.get().strip()
+            nueva_fecha_entrega = ent_fe.get().strip()
+            nuevo_estado = check_ent.get() == 1
+
+            # 2. Validar la fecha de siembra.
+            if nueva_fecha_siembra:
                 try:
-                    parte_obj.fecha_siembra = datetime.strptime(fs_str, "%d/%m/%Y").strftime("%d/%m/%Y")
+                    nueva_fecha_siembra = datetime.strptime(
+                        nueva_fecha_siembra, "%d/%m/%Y"
+                    ).strftime("%d/%m/%Y")
+
                 except ValueError:
-                    lbl_msg_actualizar.configure(text="Error: Fecha de siembra inválida (DD/MM/YYYY).", text_color="red")
+                    lbl_msg_actualizar.configure(
+                        text="Error: Fecha de siembra inválida (DD/MM/YYYY).",
+                        text_color="red"
+                    )
                     return
-            else:
-                parte_obj.fecha_siembra = ""
-                
-            fe_str = ent_fe.get().strip()
-            if fe_str:
+
+            # 3. Validar la fecha estimada de entrega.
+            if nueva_fecha_entrega:
                 try:
-                    parte_obj.fecha_estimada = datetime.strptime(fe_str, "%d/%m/%Y").strftime("%d/%m/%Y")
+                    nueva_fecha_entrega = datetime.strptime(
+                        nueva_fecha_entrega, "%d/%m/%Y"
+                    ).strftime("%d/%m/%Y")
+
                 except ValueError:
-                    lbl_msg_actualizar.configure(text="Error: Fecha de entrega inválida (DD/MM/YYYY).", text_color="red")
+                    lbl_msg_actualizar.configure(
+                        text="Error: Fecha de entrega inválida (DD/MM/YYYY).",
+                        text_color="red"
+                    )
                     return
-            else:
-                parte_obj.fecha_estimada = ""
-            
-            parte_obj.entregado = (check_ent.get() == 1) 
-            
-            self.sistema.guardar_datos() 
-            lbl_msg_actualizar.configure(text=f"¡{parte_obj.especie.title()} actualizada!", text_color="green") 
-            pintar_detalles() 
+
+            # 4. Todas las validaciones pasaron.
+            # Ahora sí modificamos los datos.
+            parte_obj.ubicacion = nueva_ubicacion
+            parte_obj.fecha_siembra = nueva_fecha_siembra
+            parte_obj.fecha_estimada = nueva_fecha_entrega
+            parte_obj.entregado = nuevo_estado
+
+            # 5. Guardar los cambios.
+            self.sistema.guardar_datos()
+
+            lbl_msg_actualizar.configure(
+                text=f"¡{parte_obj.especie.title()} actualizada!",
+                text_color="green"
+            )
+
+            pintar_detalles()
 
         for i, parte in enumerate(pedido.partes, start=1): 
             tarjeta = ctk.CTkFrame(scroll_actualizar, fg_color=("gray85", "gray25"), corner_radius=8) 
@@ -689,24 +575,118 @@ class VentanaPrincipal(ctk.CTk):
         frame_cliente = ctk.CTkFrame(ventana_pedido) 
         frame_cliente.pack(pady=10, padx=20, fill="x") 
 
-        entrada_busqueda = ctk.CTkEntry(frame_cliente, placeholder_text="Nombre del cliente...", width=200) 
-        entrada_busqueda.pack(side="left", padx=10, pady=10) 
-
-        lbl_cliente_actual = ctk.CTkLabel(frame_cliente, text="Ningún cliente seleccionado", text_color="#D9534F", font=("Arial", 14, "bold")) 
         
-        def buscar_cliente_para_pedido(): 
-            nombre = entrada_busqueda.get().strip() 
-            cliente = self.sistema.encontrar_cliente(nombre) 
-            if cliente: 
-                estado["cliente"] = cliente 
-                lbl_cliente_actual.configure(text=f"Cliente Seleccionado: {cliente.nombre.title()}", text_color="green") 
-            else: 
-                estado["cliente"] = None 
-                lbl_cliente_actual.configure(text="Cliente no encontrado", text_color="#D9534F") 
+        # Buscador de clientes
+        frame_busqueda = ctk.CTkFrame(
+            frame_cliente,
+            fg_color="transparent"
+        )
+        frame_busqueda.pack(fill="x")
 
-        btn_buscar_cli = ctk.CTkButton(frame_cliente, text="Buscar", width=80, command=buscar_cliente_para_pedido) 
-        btn_buscar_cli.pack(side="left", padx=10) 
-        lbl_cliente_actual.pack(side="left", padx=20, pady=10) 
+        texto_busqueda = ctk.StringVar()
+
+        entrada_busqueda = ctk.CTkEntry(
+            frame_busqueda,
+            placeholder_text="Buscar cliente por nombre...",
+            textvariable=texto_busqueda,
+            width=220
+        )
+        entrada_busqueda.pack(side="left", padx=10, pady=10)
+
+        lbl_cliente_actual = ctk.CTkLabel(
+            frame_busqueda,
+            text="Ningún cliente seleccionado",
+            text_color="#D9534F",
+            font=("Arial", 13, "bold")
+        )
+        lbl_cliente_actual.pack(side="left", padx=10)
+
+        # Lista desplegable de coincidencias
+        frame_resultados_clientes = ctk.CTkScrollableFrame(
+            frame_cliente,
+            height=110
+        )
+
+        def seleccionar_cliente(cliente):
+            # Guardamos el objeto real, no solamente su nombre.
+            estado["cliente"] = cliente
+
+            lbl_cliente_actual.configure(
+                text=f"Seleccionado: {cliente.nombre.title()}",
+                text_color="green"
+            )
+
+            # Ocultar la lista después de seleccionar.
+            frame_resultados_clientes.pack_forget()
+
+        def actualizar_busqueda(*args):
+            # Si el trabajador modifica la búsqueda,
+            # debe seleccionar nuevamente un cliente.
+            estado["cliente"] = None
+
+            lbl_cliente_actual.configure(
+                text="Ningún cliente seleccionado",
+                text_color="#D9534F"
+            )
+
+            # Limpiar los resultados anteriores.
+            for widget in frame_resultados_clientes.winfo_children():
+                widget.destroy()
+
+            busqueda = texto_busqueda.get().strip()
+
+            if not busqueda:
+                frame_resultados_clientes.pack_forget()
+                return
+
+            # Reutilizamos la búsqueda parcial existente.
+            resultados = self.sistema.encontrar_clientes_parcial(
+                busqueda
+            )
+
+            resultados = sorted(
+                resultados,
+                key=lambda cliente: cliente.nombre.lower()
+            )
+
+            # Mostrar la lista.
+            frame_resultados_clientes.pack(
+                fill="x",
+                padx=10,
+                pady=(0, 10)
+            )
+
+            if not resultados:
+                ctk.CTkLabel(
+                    frame_resultados_clientes,
+                    text="No se encontraron clientes."
+                ).pack(pady=10)
+                return
+
+            # Crear un botón por cada cliente encontrado.
+            for cliente in resultados:
+                informacion = (
+                    f"{cliente.nombre.title()}\n"
+                    f"Tel: {cliente.telefono}"
+                )
+
+                if cliente.direccion:
+                    informacion += f" | {cliente.direccion}"
+
+                ctk.CTkButton(
+                    frame_resultados_clientes,
+                    text=informacion,
+                    height=45,
+                    anchor="w",
+                    command=lambda c=cliente: seleccionar_cliente(c)
+                ).pack(
+                    fill="x",
+                    padx=5,
+                    pady=3
+                )
+
+        # Actualizar resultados cada vez que cambie el texto.
+        texto_busqueda.trace_add("write", actualizar_busqueda)
 
         frame_central = ctk.CTkFrame(ventana_pedido, fg_color="transparent") 
         frame_central.pack(pady=5, padx=20, fill="both", expand=True) 
@@ -767,14 +747,15 @@ class VentanaPrincipal(ctk.CTk):
 
             especie = ent_especie.get().strip() 
             ubicacion = ent_ubicacion.get().strip() 
-            fecha_est = ent_fecha_estimada.get().strip()
             
             try: 
                 cantidad = int(ent_cantidad.get().strip()) 
-                precio = float(ent_precio.get().strip()) 
+                precio = Decimal(ent_precio.get().strip())
+                if not precio.is_finite():
+                    raise ValueError
                 if cantidad <= 0 or precio <= 0: 
                     raise ValueError 
-            except ValueError: 
+            except (ValueError, InvalidOperation): 
                 lbl_error_form.configure(text="Cantidad y Precio deben ser números > 0.", text_color="red") 
                 return 
 
@@ -782,6 +763,19 @@ class VentanaPrincipal(ctk.CTk):
             if not fecha: 
                 lbl_error_form.configure(text="Error: Fecha inválida. Use DD/MM/YYYY.", text_color="red") 
                 return 
+            
+            # Validar fecha estimada de entrega.
+            try:
+                fecha_est = validar_fecha_opcional(
+                    ent_fecha_estimada.get()
+                )
+
+            except ValueError:
+                lbl_error_form.configure(
+                    text="Error: Fecha estimada inválida. Use DD/MM/YYYY.",
+                    text_color="red"
+                )
+                return
             
             if not especie or not ubicacion: 
                 lbl_error_form.configure(text="Especie y Ubicación son obligatorias.", text_color="red") 
@@ -893,9 +887,19 @@ class VentanaPrincipal(ctk.CTk):
             for especie, datos in sorted(inventario.items()): 
                 texto = f"🌿 Especie: {especie.title()}  👉  TOTAL: {datos['total']} bandejas\n" 
                 
-                lista_clientes = [] 
-                for cli, cant in datos["clientes"].items(): 
-                    lista_clientes.append(f"      ↳ {cli}: {cant}") 
+
+                lista_clientes = []
+
+                for cliente_id, info in datos["clientes"].items():
+
+                    nombre = info["nombre"].title()
+                    telefono = info["telefono"]
+                    cantidad = info["cantidad"]
+
+                    lista_clientes.append(
+                        f"      ↳ {nombre} "
+                        f"(Tel: {telefono}): {cantidad}"
+                    ) 
                 
                 texto += "\n".join(lista_clientes) 
 
