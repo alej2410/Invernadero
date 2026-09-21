@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 import uuid
 
 class Cliente: 
@@ -32,7 +33,7 @@ class PartePedido:
     def __init__(self, especie, cantidad, precio, fecha_siembra, ubicacion, entregado=False, fecha_estimada=""): 
         self.especie = especie 
         self.cantidad = cantidad 
-        self.precio = precio 
+        self.precio = Decimal(str(precio))
         self.fecha_siembra = fecha_siembra 
         self.ubicacion = ubicacion 
         self.entregado = entregado 
@@ -45,7 +46,7 @@ class PartePedido:
         return { 
             'especie': self.especie, 
             'cantidad': self.cantidad, 
-            'precio': self.precio, 
+            'precio': str(self.precio), 
             'fecha_siembra': self.fecha_siembra, 
             'ubicacion': self.ubicacion, 
             'entregado': self.entregado,
@@ -64,7 +65,7 @@ class Pedido:
         self.partes.append(parte) 
 
     def calcular_total(self): 
-        total = 0 
+        total = Decimal('0') 
         for parte in self.partes: 
             total += parte.calcular_total() 
         return total 
@@ -72,10 +73,12 @@ class Pedido:
     def registrar_abono(self, monto, fecha=None): 
         if not fecha: 
             fecha = datetime.now().strftime("%d/%m/%Y") 
-        self.abonos.append({'monto': monto, 'fecha': fecha}) 
+        self.abonos.append({
+            'monto': Decimal(str(monto)),
+            'fecha': fecha}) 
 
     def total_abonado(self): 
-        total = 0 
+        total = Decimal('0') 
         for abono in self.abonos: 
             total += abono['monto'] 
         return total 
@@ -83,9 +86,19 @@ class Pedido:
     def saldo_pendiente(self): 
         return self.calcular_total() - self.total_abonado() 
 
-    def to_dict(self): 
-        return { 
-            'fecha': self.fecha, 
-            'partes': [parte.to_dict() for parte in self.partes], 
-            'abonos': self.abonos 
-        } 
+    
+    def to_dict(self):
+        return {
+            'fecha': self.fecha,
+            'partes': [
+                parte.to_dict()
+                for parte in self.partes
+            ],
+            'abonos': [
+                {
+                    'monto': str(abono['monto']),
+                    'fecha': abono['fecha']
+                }
+                for abono in self.abonos
+            ]
+        }

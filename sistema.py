@@ -96,7 +96,13 @@ class SistemaInvernadero:
                         datos_parte.get('fecha_estimada', '')
                     ) 
                     pedido.agregar_parte(parte) 
-                pedido.abonos = datos_pedido.get('abonos', []) 
+                
+                for datos_abono in datos_pedido.get('abonos', []):
+                    pedido.registrar_abono(
+                        datos_abono['monto'],
+                        datos_abono['fecha']
+                    ) 
+                    
                 cliente.pedidos.append(pedido) 
             clientes_temporales.append(cliente) 
         

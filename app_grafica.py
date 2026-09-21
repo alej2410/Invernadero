@@ -7,6 +7,7 @@ from datetime import datetime
 from sistema import SistemaInvernadero
 from licencias import obtener_id_maquina, verificar_clave_licencia
 from validaciones import validar_fecha_opcional
+from decimal import Decimal, InvalidOperation
 # ========================================== 
 # 2. LA VISTA (INTERFAZ GRÁFICA) 
 # ========================================== 
@@ -415,12 +416,19 @@ class VentanaPrincipal(ctk.CTk):
 
         def registrar_abono_gui(): 
             try: 
-                monto = float(entrada_monto.get().strip()) 
-            except ValueError: 
+                monto = Decimal(entrada_monto.get().strip()) 
+            except (ValueError, InvalidOperation): 
                 lbl_msg_abono.configure(text="Error: Ingrese un monto numérico válido.", text_color="red") 
                 return 
 
             saldo_actual = pedido.saldo_pendiente() 
+
+            if not monto.is_finite():
+                lbl_msg_abono.configure(
+                    text="Error: Ingrese un monto válido.",
+                    text_color="red"
+                    )
+                return
 
             if monto <= 0: 
                 lbl_msg_abono.configure(text="Error: El monto debe ser mayor a cero.", text_color="red") 
@@ -742,10 +750,12 @@ class VentanaPrincipal(ctk.CTk):
             
             try: 
                 cantidad = int(ent_cantidad.get().strip()) 
-                precio = float(ent_precio.get().strip()) 
+                precio = Decimal(ent_precio.get().strip())
+                if not precio.is_finite():
+                    raise ValueError
                 if cantidad <= 0 or precio <= 0: 
                     raise ValueError 
-            except ValueError: 
+            except (ValueError, InvalidOperation): 
                 lbl_error_form.configure(text="Cantidad y Precio deben ser números > 0.", text_color="red") 
                 return 
 
