@@ -456,34 +456,59 @@ class VentanaPrincipal(ctk.CTk):
         scroll_actualizar = ctk.CTkScrollableFrame(tab_actualizar) 
         scroll_actualizar.pack(fill="both", expand=True, pady=5, padx=10) 
 
-        def actualizar_parte(parte_obj, ent_ub, ent_fs, ent_fe, check_ent): 
-            parte_obj.ubicacion = ent_ub.get().strip() 
-            
-            fs_str = ent_fs.get().strip()
-            if fs_str:
+
+        def actualizar_parte(parte_obj, ent_ub, ent_fs, ent_fe, check_ent):
+
+            # 1. Leer todos los campos sin modificar el pedido.
+            nueva_ubicacion = ent_ub.get().strip()
+            nueva_fecha_siembra = ent_fs.get().strip()
+            nueva_fecha_entrega = ent_fe.get().strip()
+            nuevo_estado = check_ent.get() == 1
+
+            # 2. Validar la fecha de siembra.
+            if nueva_fecha_siembra:
                 try:
-                    parte_obj.fecha_siembra = datetime.strptime(fs_str, "%d/%m/%Y").strftime("%d/%m/%Y")
+                    nueva_fecha_siembra = datetime.strptime(
+                        nueva_fecha_siembra, "%d/%m/%Y"
+                    ).strftime("%d/%m/%Y")
+
                 except ValueError:
-                    lbl_msg_actualizar.configure(text="Error: Fecha de siembra inválida (DD/MM/YYYY).", text_color="red")
+                    lbl_msg_actualizar.configure(
+                        text="Error: Fecha de siembra inválida (DD/MM/YYYY).",
+                        text_color="red"
+                    )
                     return
-            else:
-                parte_obj.fecha_siembra = ""
-                
-            fe_str = ent_fe.get().strip()
-            if fe_str:
+
+            # 3. Validar la fecha estimada de entrega.
+            if nueva_fecha_entrega:
                 try:
-                    parte_obj.fecha_estimada = datetime.strptime(fe_str, "%d/%m/%Y").strftime("%d/%m/%Y")
+                    nueva_fecha_entrega = datetime.strptime(
+                        nueva_fecha_entrega, "%d/%m/%Y"
+                    ).strftime("%d/%m/%Y")
+
                 except ValueError:
-                    lbl_msg_actualizar.configure(text="Error: Fecha de entrega inválida (DD/MM/YYYY).", text_color="red")
+                    lbl_msg_actualizar.configure(
+                        text="Error: Fecha de entrega inválida (DD/MM/YYYY).",
+                        text_color="red"
+                    )
                     return
-            else:
-                parte_obj.fecha_estimada = ""
-            
-            parte_obj.entregado = (check_ent.get() == 1) 
-            
-            self.sistema.guardar_datos() 
-            lbl_msg_actualizar.configure(text=f"¡{parte_obj.especie.title()} actualizada!", text_color="green") 
-            pintar_detalles() 
+
+            # 4. Todas las validaciones pasaron.
+            # Ahora sí modificamos los datos.
+            parte_obj.ubicacion = nueva_ubicacion
+            parte_obj.fecha_siembra = nueva_fecha_siembra
+            parte_obj.fecha_estimada = nueva_fecha_entrega
+            parte_obj.entregado = nuevo_estado
+
+            # 5. Guardar los cambios.
+            self.sistema.guardar_datos()
+
+            lbl_msg_actualizar.configure(
+                text=f"¡{parte_obj.especie.title()} actualizada!",
+                text_color="green"
+            )
+
+            pintar_detalles()
 
         for i, parte in enumerate(pedido.partes, start=1): 
             tarjeta = ctk.CTkFrame(scroll_actualizar, fg_color=("gray85", "gray25"), corner_radius=8) 
