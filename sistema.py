@@ -98,18 +98,41 @@ class SistemaInvernadero:
         deudores.sort(key=lambda x: x['deuda'], reverse=True) 
         return deudores, total_global_deuda 
 
-    def reporte_inventario_activo(self): 
-        inventario = {}  
-        for cliente in self.clientes: 
-            for pedido in cliente.pedidos: 
-                for parte in pedido.partes: 
-                    if not parte.entregado: 
-                        especie = parte.especie.lower().strip() 
-                        nombre_cli = cliente.nombre.title() 
-                        if especie not in inventario: 
-                            inventario[especie] = {"total": 0, "clientes": {}} 
-                        inventario[especie]["total"] += parte.cantidad 
-                        if nombre_cli not in inventario[especie]["clientes"]: 
-                            inventario[especie]["clientes"][nombre_cli] = 0 
-                        inventario[especie]["clientes"][nombre_cli] += parte.cantidad 
-        return inventario 
+    
+    def reporte_inventario_activo(self):
+        inventario = {}
+
+        for cliente in self.clientes:
+            for pedido in cliente.pedidos:
+                for parte in pedido.partes:
+
+                    if parte.entregado:
+                        continue
+
+                    especie = parte.especie.lower().strip()
+
+                    # Crear el grupo de la especie.
+                    if especie not in inventario:
+                        inventario[especie] = {
+                            "total": 0,
+                            "clientes": {}
+                        }
+
+                    inventario[especie]["total"] += parte.cantidad
+
+                    clientes_especie = inventario[especie]["clientes"]
+
+                    # El UUID identifica al cliente internamente.
+                    if cliente.id not in clientes_especie:
+                        clientes_especie[cliente.id] = {
+                            "nombre": cliente.nombre,
+                            "telefono": cliente.telefono,
+                            "cantidad": 0
+                        }
+
+                    # Acumular las bandejas del cliente correcto.
+                    clientes_especie[cliente.id]["cantidad"] += (
+                        parte.cantidad
+                    )
+
+        return inventario

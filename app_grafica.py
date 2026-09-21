@@ -851,9 +851,19 @@ class VentanaPrincipal(ctk.CTk):
             for especie, datos in sorted(inventario.items()): 
                 texto = f"🌿 Especie: {especie.title()}  👉  TOTAL: {datos['total']} bandejas\n" 
                 
-                lista_clientes = [] 
-                for cli, cant in datos["clientes"].items(): 
-                    lista_clientes.append(f"      ↳ {cli}: {cant}") 
+
+                lista_clientes = []
+
+                for cliente_id, info in datos["clientes"].items():
+
+                    nombre = info["nombre"].title()
+                    telefono = info["telefono"]
+                    cantidad = info["cantidad"]
+
+                    lista_clientes.append(
+                        f"      ↳ {nombre} "
+                        f"(Tel: {telefono}): {cantidad}"
+                    ) 
                 
                 texto += "\n".join(lista_clientes) 
 
