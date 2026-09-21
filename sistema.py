@@ -1,5 +1,7 @@
 import json
-
+import os
+import tempfile
+from pathlib import Path
 from modelos import Cliente, Pedido, PartePedido
 
 # ========================================== 
@@ -12,12 +14,55 @@ class SistemaInvernadero:
         self.archivo_datos = "datos_invernadero.json" 
         self.cargar_datos() 
 
-    def guardar_datos(self): 
-        datos = { 
-            'clientes': [cliente.to_dict() for cliente in self.clientes] 
-        } 
-        with open(self.archivo_datos, 'w', encoding='utf-8') as archivo: 
-            json.dump(datos, archivo, ensure_ascii=False, indent=4) 
+    
+    def guardar_datos(self):
+        datos = {
+            "clientes": [
+                cliente.to_dict()
+                for cliente in self.clientes
+            ]
+        }
+
+        archivo = Path(self.archivo_datos)
+        archivo_temporal = None
+
+        try:
+            # Crear un archivo temporal en la misma carpeta.
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=archivo.absolute().parent,
+                prefix=f".{archivo.name}.",
+                suffix=".tmp",
+                delete=False
+            ) as temporal:
+
+                archivo_temporal = Path(temporal.name)
+
+                # Escribir los nuevos datos.
+                json.dump(
+                    datos,
+                    temporal,
+                    ensure_ascii=False,
+                    indent=4
+                )
+
+                # Vaciar los buffers de Python y solicitar
+                # la escritura de los datos al sistema.
+                temporal.flush()
+                os.fsync(temporal.fileno())
+
+            # Reemplazar el original solamente cuando
+            # la escritura haya terminado correctamente.
+            os.replace(archivo_temporal, archivo)
+
+        except Exception:
+            # Si ocurre un error, eliminar el temporal.
+            if archivo_temporal is not None:
+                archivo_temporal.unlink(missing_ok=True)
+
+            # Propagar el error para no fingir que guardamos.
+            raise 
 
     def cargar_datos(self): 
         try: 
