@@ -460,24 +460,118 @@ class VentanaPrincipal(ctk.CTk):
         frame_cliente = ctk.CTkFrame(ventana_pedido) 
         frame_cliente.pack(pady=10, padx=20, fill="x") 
 
-        entrada_busqueda = ctk.CTkEntry(frame_cliente, placeholder_text="Nombre del cliente...", width=200) 
-        entrada_busqueda.pack(side="left", padx=10, pady=10) 
-
-        lbl_cliente_actual = ctk.CTkLabel(frame_cliente, text="Ningún cliente seleccionado", text_color="#D9534F", font=("Arial", 14, "bold")) 
         
-        def buscar_cliente_para_pedido(): 
-            nombre = entrada_busqueda.get().strip() 
-            cliente = self.sistema.encontrar_cliente(nombre) 
-            if cliente: 
-                estado["cliente"] = cliente 
-                lbl_cliente_actual.configure(text=f"Cliente Seleccionado: {cliente.nombre.title()}", text_color="green") 
-            else: 
-                estado["cliente"] = None 
-                lbl_cliente_actual.configure(text="Cliente no encontrado", text_color="#D9534F") 
+        # Buscador de clientes
+        frame_busqueda = ctk.CTkFrame(
+            frame_cliente,
+            fg_color="transparent"
+        )
+        frame_busqueda.pack(fill="x")
 
-        btn_buscar_cli = ctk.CTkButton(frame_cliente, text="Buscar", width=80, command=buscar_cliente_para_pedido) 
-        btn_buscar_cli.pack(side="left", padx=10) 
-        lbl_cliente_actual.pack(side="left", padx=20, pady=10) 
+        texto_busqueda = ctk.StringVar()
+
+        entrada_busqueda = ctk.CTkEntry(
+            frame_busqueda,
+            placeholder_text="Buscar cliente por nombre...",
+            textvariable=texto_busqueda,
+            width=220
+        )
+        entrada_busqueda.pack(side="left", padx=10, pady=10)
+
+        lbl_cliente_actual = ctk.CTkLabel(
+            frame_busqueda,
+            text="Ningún cliente seleccionado",
+            text_color="#D9534F",
+            font=("Arial", 13, "bold")
+        )
+        lbl_cliente_actual.pack(side="left", padx=10)
+
+        # Lista desplegable de coincidencias
+        frame_resultados_clientes = ctk.CTkScrollableFrame(
+            frame_cliente,
+            height=110
+        )
+
+        def seleccionar_cliente(cliente):
+            # Guardamos el objeto real, no solamente su nombre.
+            estado["cliente"] = cliente
+
+            lbl_cliente_actual.configure(
+                text=f"Seleccionado: {cliente.nombre.title()}",
+                text_color="green"
+            )
+
+            # Ocultar la lista después de seleccionar.
+            frame_resultados_clientes.pack_forget()
+
+        def actualizar_busqueda(*args):
+            # Si el trabajador modifica la búsqueda,
+            # debe seleccionar nuevamente un cliente.
+            estado["cliente"] = None
+
+            lbl_cliente_actual.configure(
+                text="Ningún cliente seleccionado",
+                text_color="#D9534F"
+            )
+
+            # Limpiar los resultados anteriores.
+            for widget in frame_resultados_clientes.winfo_children():
+                widget.destroy()
+
+            busqueda = texto_busqueda.get().strip()
+
+            if not busqueda:
+                frame_resultados_clientes.pack_forget()
+                return
+
+            # Reutilizamos la búsqueda parcial existente.
+            resultados = self.sistema.encontrar_clientes_parcial(
+                busqueda
+            )
+
+            resultados = sorted(
+                resultados,
+                key=lambda cliente: cliente.nombre.lower()
+            )
+
+            # Mostrar la lista.
+            frame_resultados_clientes.pack(
+                fill="x",
+                padx=10,
+                pady=(0, 10)
+            )
+
+            if not resultados:
+                ctk.CTkLabel(
+                    frame_resultados_clientes,
+                    text="No se encontraron clientes."
+                ).pack(pady=10)
+                return
+
+            # Crear un botón por cada cliente encontrado.
+            for cliente in resultados:
+                informacion = (
+                    f"{cliente.nombre.title()}\n"
+                    f"Tel: {cliente.telefono}"
+                )
+
+                if cliente.direccion:
+                    informacion += f" | {cliente.direccion}"
+
+                ctk.CTkButton(
+                    frame_resultados_clientes,
+                    text=informacion,
+                    height=45,
+                    anchor="w",
+                    command=lambda c=cliente: seleccionar_cliente(c)
+                ).pack(
+                    fill="x",
+                    padx=5,
+                    pady=3
+                )
+
+        # Actualizar resultados cada vez que cambie el texto.
+        texto_busqueda.trace_add("write", actualizar_busqueda)
 
         frame_central = ctk.CTkFrame(ventana_pedido, fg_color="transparent") 
         frame_central.pack(pady=5, padx=20, fill="both", expand=True) 
