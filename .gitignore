@@ -17,6 +17,7 @@ env/
 # Archivos de licencia locales
 licencia.key
 generador_licencias.py
+*.pem
 
 .pytest_cache/
 .venv/
