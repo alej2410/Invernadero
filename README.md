@@ -128,7 +128,8 @@ En Windows, activarlo con:
 ### 3. Instalar dependencias
 
 ```bash
-python -m pip install customtkinter pytest cryptography```
+python -m pip install customtkinter pytest cryptography
+```
 
 ### 4. Ejecutar la aplicación
 
