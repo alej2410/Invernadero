@@ -8,6 +8,7 @@ dist/
 
 # Base de datos local 
 datos_invernadero.json
+copias_seguridad/
 
 # Entornos virtuales y configuraciones del editor
 .vscode/
