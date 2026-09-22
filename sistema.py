@@ -119,6 +119,9 @@ class SistemaInvernadero:
                 temporal.flush()
                 os.fsync(temporal.fileno())
 
+            # Verificar que la copia puede cargarse completamente.
+            SistemaInvernadero(archivo_datos=archivo_temporal)
+
             os.replace(archivo_temporal, destino)
             return destino
 

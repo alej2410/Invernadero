@@ -63,3 +63,25 @@ def test_no_crea_copia_si_falta_archivo(
         sistema.crear_copia_seguridad()
 
     assert not (tmp_path / "copias_seguridad").exists()
+
+
+def test_no_crea_copia_si_cliente_esta_incompleto(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+
+    sistema = SistemaInvernadero()
+
+    archivo = tmp_path / "datos_invernadero.json"
+    archivo.write_text(
+        '{"clientes": [{}]}',
+        encoding="utf-8"
+    )
+
+    with pytest.raises(KeyError):
+        sistema.crear_copia_seguridad()
+
+    carpeta = tmp_path / "copias_seguridad"
+
+    assert list(carpeta.glob("*.json")) == []
+    assert list(carpeta.glob("*.tmp")) == []
