@@ -128,8 +128,7 @@ En Windows, activarlo con:
 ### 3. Instalar dependencias
 
 ```bash
-python -m pip install customtkinter pytest
-```
+python -m pip install customtkinter pytest cryptography```
 
 ### 4. Ejecutar la aplicación
 
@@ -192,6 +191,8 @@ La aplicación dispone de un mecanismo de activación local asociado al identifi
 Para activar una instalación se necesita una licencia proporcionada por el desarrollador.
 
 El mecanismo de licencias se encuentra en revisión y no debe considerarse una protección resistente frente a la ingeniería inversa.
+
+Las licencias utilizan firmas digitales Ed25519. La aplicación contiene una clave pública para verificarlas; la clave privada y el generador se mantienen fuera del repositorio y del programa distribuido.
 
 ## Estado y alcance
 
