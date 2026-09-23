@@ -35,6 +35,9 @@ class SistemaInvernadero:
         archivo_temporal = None
 
         try:
+            # Crear la carpeta de datos si todavía no existe.
+            archivo.parent.mkdir(parents=True, exist_ok=True)
+
             # Crear un archivo temporal en la misma carpeta.
             with tempfile.NamedTemporaryFile(
                 mode="w",
