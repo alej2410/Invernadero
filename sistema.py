@@ -12,10 +12,15 @@ from uuid import uuid4
 # ========================================== 
 
 class SistemaInvernadero: 
-    def __init__(self, archivo_datos="datos_invernadero.json"):
+    def __init__(
+    self,
+    archivo_datos="datos_invernadero.json",
+    cargar=True):
         self.clientes = []
         self.archivo_datos = archivo_datos
-        self.cargar_datos() 
+
+        if cargar:
+            self.cargar_datos()
 
     
     def guardar_datos(self):
@@ -212,9 +217,13 @@ class SistemaInvernadero:
                 datos = json.load(archivo) 
         except FileNotFoundError: 
             self.clientes = [] 
-            return 
+            return
 
-        clientes_temporales = [] 
+        if (not isinstance(datos, dict) or not isinstance(datos.get("clientes"), list)):
+            raise ValueError("El archivo de datos no tiene una estructura válida")
+
+        clientes_temporales = []
+
         for datos_cliente in datos.get('clientes', []): 
             # Lectura a prueba de fallos para clientes viejos
             cliente = Cliente(
