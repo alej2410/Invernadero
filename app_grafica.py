@@ -1,7 +1,7 @@
 import json
 import customtkinter as ctk
 import os
-from rutas import obtener_ruta_datos
+from rutas import obtener_ruta_datos, obtener_ruta_licencia
 from modelos import Cliente, PartePedido, Pedido
 from tkinter import filedialog, messagebox
 from datetime import datetime
@@ -1022,7 +1022,7 @@ class VentanaPrincipal(ctk.CTk):
 # 3. EL CONTROLADOR (MAIN) CON SEGURIDAD POR CLIENTE
 # ========================================== 
 def main():
-    archivo_licencia = "licencia.key"
+    archivo_licencia = obtener_ruta_licencia()
     id_maquina = obtener_id_maquina()
 
     def cargar_licencia():
@@ -1087,6 +1087,7 @@ def main():
             lbl_error.configure(text="Completa ambos campos.")
             return
         if verificar_clave_licencia(id_maquina, nombre, clave):
+            archivo_licencia.parent.mkdir(parents=True, exist_ok=True)
             with open(archivo_licencia, 'w', encoding='utf-8') as f:
                 json.dump({'id_maquina': id_maquina, 'nombre_cliente': nombre, 'clave': clave}, f)
             ventana_login.destroy()

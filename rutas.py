@@ -11,3 +11,6 @@ def obtener_ruta_datos():
         base = Path.home() / "AppData" / "Local"
 
     return base / "Invernadero" / "datos_invernadero.json"
+
+def obtener_ruta_licencia():
+    return obtener_ruta_datos().parent / "licencia.key"

@@ -1,6 +1,7 @@
-from rutas import obtener_ruta_datos
+from rutas import obtener_ruta_datos, obtener_ruta_licencia
 from modelos import Cliente
 from sistema import SistemaInvernadero
+
 
 def test_ruta_datos_usa_carpeta_local(tmp_path, monkeypatch):
     carpeta_local = tmp_path / "AppData" / "Local"
@@ -46,3 +47,12 @@ def test_guardar_crea_carpeta_de_datos(tmp_path):
 
     recuperado = SistemaInvernadero(archivo_datos=archivo)
     assert recuperado.clientes[0].nombre == "Cliente de prueba"
+
+def test_licencia_y_datos_comparten_carpeta(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    ruta_datos = obtener_ruta_datos()
+    ruta_licencia = obtener_ruta_licencia()
+
+    assert ruta_licencia == ruta_datos.parent / "licencia.key"
+    assert ruta_licencia.parent == ruta_datos.parent
