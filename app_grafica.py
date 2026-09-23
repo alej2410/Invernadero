@@ -1,6 +1,7 @@
 import json
 import customtkinter as ctk
 import os
+from rutas import obtener_ruta_datos
 from modelos import Cliente, PartePedido, Pedido
 from tkinter import filedialog, messagebox
 from datetime import datetime
@@ -1102,9 +1103,11 @@ def iniciar_programa(nombre_cliente=""):
     ctk.set_appearance_mode("System")
     ctk.set_default_color_theme("green")
 
+    ruta_datos = obtener_ruta_datos()
+
     while True:
         try:
-            sistema = SistemaInvernadero()
+            sistema = SistemaInvernadero(archivo_datos=ruta_datos)
 
         except (
             OSError,
@@ -1141,9 +1144,7 @@ def iniciar_programa(nombre_cliente=""):
             ).pack(padx=20, pady=(0, 12))
 
             def seleccionar_copia():
-                carpeta_copias = os.path.abspath(
-                    "copias_seguridad"
-                )
+                carpeta_copias = ruta_datos.parent / "copias_seguridad"
 
                 carpeta_inicial = (
                     carpeta_copias
@@ -1179,6 +1180,7 @@ def iniciar_programa(nombre_cliente=""):
                 try:
                     # Crear un objeto sin cargar el JSON dañado.
                     recuperador = SistemaInvernadero(
+                        archivo_datos=ruta_datos,
                         cargar=False
                     )
 
@@ -1187,7 +1189,7 @@ def iniciar_programa(nombre_cliente=""):
                     )
 
                     # Comprobar que el próximo inicio puede cargarlo.
-                    SistemaInvernadero()
+                    SistemaInvernadero(archivo_datos=ruta_datos)
 
                 except (
                     OSError,
