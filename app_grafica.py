@@ -2,7 +2,7 @@ import json
 import customtkinter as ctk
 import os
 from modelos import Cliente, PartePedido, Pedido
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 from datetime import datetime
 from sistema import SistemaInvernadero
 from licencias import obtener_id_maquina, verificar_clave_licencia
@@ -39,8 +39,16 @@ class VentanaPrincipal(ctk.CTk):
                                           command=self.abrir_reportes) 
         self.btn_reportes.pack(pady=10, fill="x", padx=80) 
 
+        self.btn_copia = ctk.CTkButton(self, text="5. Crear Copia de Seguridad", height=40, font=("Arial", 14),
+                                        command=self.crear_copia_desde_gui)
+        self.btn_copia.pack(pady=10, fill="x", padx=80)
+
+        self.btn_restaurar = ctk.CTkButton(self, text="6. Restaurar Copia de Seguridad", height=40, font=("Arial", 14),
+                                        command=self.restaurar_copia_desde_gui)
+        self.btn_restaurar.pack(pady=10, fill="x", padx=80)
+
         self.btn_salir = ctk.CTkButton(self, text="Salir del Sistema", height=40, font=("Arial", 14), 
-                                        fg_color="#D9534F", hover_color="#C9302C", 
+                                        fg_color="#D9534F", hover_color="#C9302C",
                                         command=self.destroy) 
         self.btn_salir.pack(pady=(40, 10), fill="x", padx=80) 
 
@@ -193,6 +201,107 @@ class VentanaPrincipal(ctk.CTk):
 
         entrada_nombre.focus_set()
    
+
+    def crear_copia_desde_gui(self):
+        carpeta = filedialog.askdirectory(
+            parent=self,
+            title="Selecciona dónde guardar la copia de seguridad",
+            mustexist=True
+        )
+
+        # Cancelar el selector no debe crear ningún archivo.
+        if not carpeta:
+            return
+
+        try:
+            copia = self.sistema.crear_copia_seguridad(
+                carpeta_destino=carpeta
+            )
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            messagebox.showerror(
+                "No se pudo crear la copia",
+                f"No se creó ninguna copia de seguridad.\n\n{error}",
+                parent=self
+            )
+            return
+
+        messagebox.showinfo(
+            "Copia creada",
+            f"La copia de seguridad se guardó en:\n\n{copia}",
+            parent=self
+        )
+
+
+    def restaurar_copia_desde_gui(self):
+        # Evitar que otras ventanas con datos antiguos sigan abiertas.
+        ventanas_abiertas = [
+            ventana
+            for ventana in self.winfo_children()
+            if isinstance(ventana, ctk.CTkToplevel)
+            and ventana.winfo_exists()
+        ]
+
+        if ventanas_abiertas:
+            messagebox.showwarning(
+                "Cierra las ventanas abiertas",
+                "Antes de restaurar, cierra las ventanas de "
+                "clientes, pedidos y reportes.",
+                parent=self
+            )
+            return
+
+        ruta_copia = filedialog.askopenfilename(
+            parent=self,
+            title="Selecciona la copia que deseas restaurar",
+            filetypes=[
+                ("Archivos JSON", "*.json"),
+                ("Todos los archivos", "*.*")
+            ]
+        )
+
+        # Si el usuario cancela, no modificar nada.
+        if not ruta_copia:
+            return
+
+        confirmar = messagebox.askyesno(
+            "Confirmar restauración",
+            "¿Quieres reemplazar los datos actuales por "
+            "los de esta copia?\n\n"
+            "El programa intentará guardar una copia de "
+            "los datos actuales antes de reemplazarlos.\n\n"
+            f"Archivo seleccionado:\n{ruta_copia}",
+            parent=self
+        )
+
+        if not confirmar:
+            return
+
+        try:
+            respaldo_anterior = (
+                self.sistema.restaurar_copia_seguridad(ruta_copia)
+            )
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            messagebox.showerror(
+                "No se pudo restaurar",
+                "Los datos actuales no se reemplazaron.\n\n"
+                f"Detalle: {error}",
+                parent=self
+            )
+            return
+
+        mensaje = "La copia se restauró correctamente."
+
+        if respaldo_anterior is not None:
+            mensaje += (
+                "\n\nLos datos que tenías antes quedaron en:\n"
+                f"{respaldo_anterior}"
+            )
+
+        messagebox.showinfo(
+            "Restauración completada",
+            mensaje,
+            parent=self
+        )
 
     def abrir_buscar_cliente(self): 
         if getattr(self, "v_buscar_activa", None) and self.v_buscar_activa.winfo_exists(): 
