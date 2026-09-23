@@ -1097,14 +1097,167 @@ def main():
     ventana_login.mainloop()
 
 
+
 def iniciar_programa(nombre_cliente=""):
-    sistema = SistemaInvernadero() 
-    ctk.set_appearance_mode("System") 
-    ctk.set_default_color_theme("green") 
-    app = VentanaPrincipal(sistema)
-    if nombre_cliente:
-        app.title(f"Sistema de Gestión - Invernadero  |  Licenciado a: {nombre_cliente}")
-    app.mainloop() 
+    ctk.set_appearance_mode("System")
+    ctk.set_default_color_theme("green")
+
+    while True:
+        try:
+            sistema = SistemaInvernadero()
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            InvalidOperation
+        ) as error:
+
+            # No abrir el sistema normal si falló la carga.
+            ventana = ctk.CTk()
+            ventana.title("Recuperación de datos")
+            ventana.geometry("540x350")
+            ventana.resizable(False, False)
+
+            restaurado = {"valor": False}
+
+            ctk.CTkLabel(
+                ventana,
+                text="No se pudieron cargar los datos",
+                font=("Arial", 21, "bold")
+            ).pack(pady=(25, 12))
+
+            ctk.CTkLabel(
+                ventana,
+                text=(
+                    "El archivo de datos no se pudo leer correctamente.\n"
+                    "No se modificará ni se reemplazará automáticamente.\n\n"
+                    "Selecciona una copia de seguridad para recuperarlo,\n"
+                    "o cierra el programa."
+                ),
+                justify="center"
+            ).pack(padx=20, pady=(0, 12))
+
+            def seleccionar_copia():
+                carpeta_copias = os.path.abspath(
+                    "copias_seguridad"
+                )
+
+                carpeta_inicial = (
+                    carpeta_copias
+                    if os.path.isdir(carpeta_copias)
+                    else os.getcwd()
+                )
+
+                ruta = filedialog.askopenfilename(
+                    parent=ventana,
+                    title="Selecciona una copia de seguridad",
+                    initialdir=carpeta_inicial,
+                    filetypes=[
+                        ("Archivos JSON", "*.json"),
+                        ("Todos los archivos", "*.*")
+                    ]
+                )
+
+                if not ruta:
+                    return
+
+                confirmar = messagebox.askyesno(
+                    "Confirmar recuperación",
+                    "¿Quieres restaurar esta copia?\n\n"
+                    "El programa intentará conservar el archivo "
+                    "actual antes de reemplazarlo.\n\n"
+                    f"Archivo seleccionado:\n{ruta}",
+                    parent=ventana
+                )
+
+                if not confirmar:
+                    return
+
+                try:
+                    # Crear un objeto sin cargar el JSON dañado.
+                    recuperador = SistemaInvernadero(
+                        cargar=False
+                    )
+
+                    respaldo_anterior = (
+                        recuperador.restaurar_copia_seguridad(ruta)
+                    )
+
+                    # Comprobar que el próximo inicio puede cargarlo.
+                    SistemaInvernadero()
+
+                except (
+                    OSError,
+                    ValueError,
+                    KeyError,
+                    TypeError,
+                    AttributeError,
+                    InvalidOperation
+                ) as error_recuperacion:
+                    messagebox.showerror(
+                        "Error de recuperación",
+                        "No se pudo completar la recuperación.\n\n"
+                        f"Detalle: {error_recuperacion}",
+                        parent=ventana
+                    )
+                    return
+
+                mensaje = "Los datos se recuperaron correctamente."
+
+                if respaldo_anterior is not None:
+                    mensaje += (
+                        "\n\nEl archivo que se reemplazó "
+                        "quedó guardado en:\n"
+                        f"{respaldo_anterior}"
+                    )
+
+                messagebox.showinfo(
+                    "Recuperación completada",
+                    mensaje,
+                    parent=ventana
+                )
+
+                restaurado["valor"] = True
+                ventana.destroy()
+
+            ctk.CTkButton(
+                ventana,
+                text="Seleccionar copia de seguridad",
+                height=40,
+                command=seleccionar_copia
+            ).pack(fill="x", padx=75, pady=(8, 10))
+
+            ctk.CTkButton(
+                ventana,
+                text="Salir sin modificar los datos",
+                height=40,
+                fg_color="#D9534F",
+                hover_color="#C9302C",
+                command=ventana.destroy
+            ).pack(fill="x", padx=75, pady=(0, 15))
+
+            ventana.mainloop()
+
+            if not restaurado["valor"]:
+                return
+
+            # Tras restaurar, volver a intentar el inicio normal.
+            continue
+
+        # Solo llegamos aquí si los datos se cargaron correctamente.
+        app = VentanaPrincipal(sistema)
+
+        if nombre_cliente:
+            app.title(
+                "Sistema de Gestión - Invernadero"
+                f"  |  Licenciado a: {nombre_cliente}"
+            )
+
+        app.mainloop()
+        return
 
 if __name__ == "__main__": 
     main()
