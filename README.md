@@ -1,9 +1,10 @@
-
 # 🌱 Sistema de Gestión para Invernadero
 
-Aplicación de escritorio desarrollada en Python para gestionar clientes, pedidos, siembras, entregas y pagos de un invernadero.
+Aplicación de escritorio desarrollada en Python para gestionar clientes, pedidos, siembras, entregas, pagos e inventario de un invernadero.
 
-El proyecto surge de una necesidad planteada por un familiar: sustituir los registros en cuadernos por un sistema que facilite organizar y consultar la información. Actualmente se desarrolla como proyecto de aprendizaje y portafolio; no se ha desplegado para uso operativo.
+El proyecto surge de una necesidad planteada por un familiar: sustituir los registros en cuadernos por un sistema que facilite organizar y consultar la información.
+
+Actualmente se desarrolla como proyecto de aprendizaje y portafolio. La aplicación es funcional y cuenta con una versión empaquetada para Windows, aunque todavía no se ha desplegado para uso operativo en el invernadero.
 
 Funciona de manera local, con una interfaz gráfica desarrollada en CustomTkinter y almacenamiento en JSON.
 
@@ -14,7 +15,7 @@ Funciona de manera local, con una interfaz gráfica desarrollada en CustomTkinte
 - Registro de clientes con nombre, teléfono, cédula y ubicación.
 - Búsqueda parcial por nombre.
 - Edición de información.
-- Identificadores únicos (UUID).
+- Identificadores únicos mediante UUID.
 - Soporte para clientes con nombres repetidos.
 - Consulta del historial de pedidos.
 
@@ -54,17 +55,19 @@ Los clientes se distinguen internamente mediante UUID para evitar que se mezclen
 
 ### Copias de seguridad y recuperación
 
-- Creación de copias de seguridad desde la interfaz gráfica.
+- Creación manual de copias de seguridad desde la interfaz gráfica.
 - Selección de la carpeta donde se guardará cada copia.
-- Restauración de una copia mediante un selector de archivos y una confirmación.
+- Validación del archivo antes de crear una copia.
+- Restauración mediante selector de archivos y confirmación.
+- Validación de la copia antes de reemplazar los datos actuales.
 - Conservación del archivo reemplazado antes de completar una restauración.
-- Validación de las copias antes de utilizarlas.
-- Detección de errores al cargar el archivo de datos durante el inicio.
-- Posibilidad de seleccionar una copia para recuperar la información o salir sin reemplazar automáticamente el archivo dañado.
+- Detección de errores al cargar los datos durante el inicio.
+- Recuperación desde una copia de seguridad cuando el archivo principal no puede cargarse.
+- Posibilidad de salir sin modificar automáticamente un archivo dañado.
 
 Las copias se crean cuando el usuario solicita la operación; actualmente no existe un sistema de respaldos automáticos.
 
-Guardar una copia en la misma computadora no protege frente a la pérdida o avería del equipo. Para contar con una copia independiente, se puede seleccionar una unidad externa como destino.
+Guardar una copia únicamente en la misma computadora no protege frente a la pérdida o avería del equipo. El sistema permite seleccionar una ubicación externa para guardar respaldos independientes.
 
 ## Tecnologías
 
@@ -76,11 +79,13 @@ Guardar una copia en la misma computadora no protege frente a la pérdida o aver
 | JSON | Persistencia local |
 | Decimal | Cálculos monetarios |
 | UUID | Identificación de clientes |
+| pathlib | Gestión de rutas y archivos |
 | pytest | Pruebas automatizadas |
-| GitHub Actions | Ejecución de pruebas en Windows |
-| Ed25519 | Verificación de firmas digitales de licencias |
+| GitHub Actions | Integración continua y ejecución de pruebas en Windows |
+| Ed25519 | Firma y verificación de licencias |
+| PyInstaller | Empaquetado de la aplicación para Windows |
 
-El proyecto utiliza también módulos de la biblioteca estándar de Python para la gestión de archivos, fechas y copias de seguridad.
+El proyecto utiliza también distintos módulos de la biblioteca estándar de Python para trabajar con archivos, fechas, copias de seguridad y operaciones seguras de escritura.
 
 ## Estructura del proyecto
 
@@ -92,6 +97,7 @@ Invernadero/
 ├── sistema.py
 ├── validaciones.py
 ├── licencias.py
+├── rutas.py
 │
 ├── tests/
 │   ├── test_clientes.py
@@ -104,7 +110,8 @@ Invernadero/
 │   ├── test_pedidos.py
 │   ├── test_persistencia.py
 │   ├── test_recuperacion_inicio.py
-│   └── test_restauracion.py
+│   ├── test_restauracion.py
+│   └── test_rutas.py
 │
 ├── .github/
 │   └── workflows/
@@ -117,17 +124,18 @@ Invernadero/
 
 ### Organización del código
 
-- `app_grafica.py`: interfaz gráfica, activación e inicio de la aplicación.
-- `modelos.py`: clases `Cliente`, `Pedido` y `PartePedido`, junto con sus cálculos y representación como diccionarios.
+- `app_grafica.py`: interfaz gráfica, activación, interacción con el usuario e inicio de la aplicación.
+- `modelos.py`: clases `Cliente`, `Pedido` y `PartePedido`, junto con sus cálculos y conversión a estructuras compatibles con JSON.
 - `sistema.py`: gestión de datos, persistencia, reportes, copias de seguridad y restauración.
 - `validaciones.py`: validaciones reutilizables.
-- `licencias.py`: identificación del equipo y verificación de licencias firmadas.
-- `tests/`: pruebas automatizadas de la lógica del programa.
+- `licencias.py`: identificación del equipo y verificación criptográfica de licencias.
+- `rutas.py`: definición de las ubicaciones estables utilizadas para los datos y la licencia.
+- `tests/`: pruebas automatizadas de la lógica, persistencia y manejo de archivos.
 - `.github/workflows/tests.yml`: configuración de las pruebas ejecutadas mediante GitHub Actions.
 
 ## Cómo funciona el programa
 
-La aplicación separa la interfaz, los modelos de datos y las operaciones de persistencia.
+La aplicación separa la interfaz gráfica, los modelos de datos, la persistencia y otras responsabilidades auxiliares.
 
 ### Ejemplo: registrar un cliente
 
@@ -135,23 +143,30 @@ La aplicación separa la interfaz, los modelos de datos y las operaciones de per
 2. `app_grafica.py` crea un objeto `Cliente`.
 3. El objeto se incorpora a la lista de clientes de `SistemaInvernadero`.
 4. `guardar_datos()` convierte los objetos en diccionarios compatibles con JSON.
-5. El sistema escribe el contenido en un archivo temporal y, cuando termina correctamente, reemplaza el archivo de datos.
+5. El sistema escribe primero el contenido en un archivo temporal.
+6. Cuando la escritura termina correctamente, `os.replace()` sustituye el archivo de datos anterior.
 
-De esta manera, el archivo JSON no se sobrescribe directamente mientras se está escribiendo la nueva información.
+De esta manera, el JSON principal no se sobrescribe directamente durante el proceso de escritura.
 
 ### Ejemplo: iniciar la aplicación
 
-1. Se comprueba la licencia de la instalación.
-2. El sistema intenta cargar `datos_invernadero.json`.
-3. Se reconstruyen los objetos `Cliente`, `Pedido` y `PartePedido` a partir de los datos guardados.
-4. Si la carga finaliza correctamente, se abre la ventana principal.
-5. Si la carga falla, el programa ofrece seleccionar una copia de seguridad o salir sin reemplazar automáticamente los datos existentes.
+1. Se determina la ruta de la licencia.
+2. Se comprueba la licencia de la instalación.
+3. Se determina la ruta estable del archivo de datos.
+4. El sistema intenta cargar `datos_invernadero.json`.
+5. Se reconstruyen los objetos `Cliente`, `Pedido` y `PartePedido`.
+6. Si la carga finaliza correctamente, se abre la ventana principal.
+7. Si la carga falla, el programa ofrece recuperar una copia de seguridad o salir sin reemplazar automáticamente los datos existentes.
 
-Cuando el archivo todavía no existe, el sistema puede comenzar con una lista vacía de clientes. Esto es distinto de encontrar un archivo existente cuyo contenido es inválido.
+Cuando el archivo todavía no existe, el sistema puede comenzar con una lista vacía de clientes. Esto es distinto de encontrar un archivo existente cuyo contenido sea inválido.
 
 ### Ejemplo: restaurar una copia
 
-Antes de reemplazar el archivo actual, el programa comprueba que la copia seleccionada tiene una estructura válida y que sus datos pueden cargarse. Si existe un archivo anterior, intenta conservarlo como respaldo y después realiza el reemplazo.
+Antes de reemplazar el archivo actual, el programa comprueba que la copia seleccionada tenga una estructura válida y que pueda cargarse correctamente.
+
+Si existe un archivo anterior, el programa intenta conservarlo como respaldo antes de completar el reemplazo.
+
+Después de restaurar, el sistema vuelve a comprobar que los datos puedan cargarse correctamente.
 
 ## Instalación para desarrollo
 
@@ -168,7 +183,7 @@ cd Invernadero
 python -m venv .venv
 ```
 
-En Windows, activarlo con:
+En Windows:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
@@ -177,7 +192,7 @@ En Windows, activarlo con:
 ### 3. Instalar dependencias
 
 ```bash
-python -m pip install customtkinter pytest cryptography
+python -m pip install customtkinter pytest cryptography pyinstaller
 ```
 
 ### 4. Ejecutar la aplicación
@@ -186,11 +201,13 @@ python -m pip install customtkinter pytest cryptography
 python app_grafica.py
 ```
 
-La aplicación requiere una licencia válida para acceder a sus funcionalidades. El generador de licencias y la clave privada no forman parte del repositorio.
+La aplicación requiere una licencia válida para acceder a sus funcionalidades.
+
+El generador de licencias y la clave privada utilizada para firmarlas no forman parte del repositorio.
 
 ## Pruebas automatizadas
 
-El proyecto cuenta actualmente con **29 pruebas automatizadas** desarrolladas con `pytest`.
+El proyecto cuenta actualmente con **33 pruebas automatizadas** desarrolladas con `pytest`.
 
 Para ejecutarlas:
 
@@ -200,84 +217,178 @@ python -m pytest -v
 
 Las pruebas abarcan:
 
-- Cálculos de pedidos, pagos y saldos.
+- Cálculos de pedidos.
+- Cálculo de pagos y saldos.
+- Registro de abonos.
 - Persistencia de datos.
-- Identificadores únicos y clientes con nombres repetidos.
+- Identificadores únicos.
+- Clientes con nombres repetidos.
 - Inventario activo.
 - Validación de fechas.
-- Conservación de importes decimales.
+- Conservación exacta de importes decimales.
 - Manejo de errores durante el guardado.
+- Escritura segura mediante archivos temporales.
 - Verificación de licencias firmadas.
 - Creación y validación de copias de seguridad.
-- Restauración y conservación del archivo anterior.
-- Recuperación de datos después de simular un archivo dañado.
+- Restauración de datos.
+- Conservación del archivo reemplazado.
+- Recuperación después de simular un archivo dañado.
+- Uso de una ubicación estable para los archivos de aplicación.
+- Creación automática de la carpeta de datos cuando todavía no existe.
+- Ubicación común para los datos y la licencia.
 
-Las pruebas que trabajan con archivos utilizan directorios temporales para evitar modificar los datos locales del usuario.
+Las pruebas que trabajan con archivos utilizan directorios temporales para evitar modificar los datos reales del usuario.
 
-GitHub Actions ejecuta las pruebas en Windows cuando se realizan cambios o se abren pull requests hacia `main`.
+GitHub Actions ejecuta las pruebas automáticamente en Windows cuando se realizan determinados cambios o se abren pull requests hacia `main`.
 
-**Alcance de las pruebas:** los 29 casos automatizados verifican principalmente la lógica y la persistencia. Los flujos de la interfaz gráfica, incluidos los diálogos de copias y recuperación, también se han comprobado manualmente, pero todavía no cuentan con pruebas automatizadas de interfaz.
+### Alcance de las pruebas
+
+Las 33 pruebas automatizadas verifican principalmente la lógica, persistencia y manejo de archivos.
+
+Los flujos de la interfaz gráfica también se han comprobado manualmente, pero actualmente no cuentan con pruebas automatizadas de interfaz.
 
 ## Persistencia
 
-La aplicación almacena la información en:
+La aplicación utiliza JSON como almacenamiento local.
+
+El archivo principal es:
 
 ```text
 datos_invernadero.json
 ```
 
-El archivo contiene los clientes, sus pedidos y sus abonos.
+Contiene los clientes, sus pedidos, partes de pedidos y abonos.
 
-Los importes monetarios se guardan como cadenas decimales y se recuperan como objetos `Decimal`.
+Los importes monetarios se guardan como cadenas decimales y se reconstruyen como objetos `Decimal` al cargarlos.
+
+### Ubicación de los datos
+
+En Windows, los archivos propios de la aplicación se almacenan dentro de:
+
+```text
+%LOCALAPPDATA%\Invernadero\
+```
+
+Actualmente se utilizan, entre otros:
+
+```text
+%LOCALAPPDATA%\Invernadero\datos_invernadero.json
+%LOCALAPPDATA%\Invernadero\licencia.key
+```
+
+Esto permite que los datos y la licencia sean independientes de:
+
+- La carpeta desde la que se ejecute el programa.
+- La ubicación del ejecutable.
+- El repositorio del código fuente.
+- La carpeta utilizada durante la compilación.
+
+La carpeta se crea automáticamente cuando es necesario guardar información.
 
 ### Guardado seguro
 
-El sistema utiliza archivos temporales y `os.replace()` para evitar sobrescribir directamente el JSON original durante la escritura.
+El sistema utiliza archivos temporales y `os.replace()` para evitar sobrescribir directamente el JSON original durante una escritura.
 
-Si ocurre un error antes de completar el reemplazo, se busca conservar el archivo anterior. Este mecanismo reduce riesgos durante el guardado, pero no sustituye las copias de seguridad.
+Si ocurre un error antes de completar el reemplazo, se busca conservar intacto el archivo anterior.
 
-Actualmente, la ubicación del archivo de datos depende de una ruta relativa. Definir una ubicación estable para futuras versiones ejecutables es una mejora pendiente.
+Este mecanismo reduce el riesgo de corrupción durante un guardado, pero no sustituye las copias de seguridad.
 
 El archivo de datos, las copias locales y la licencia están excluidos del repositorio mediante `.gitignore`.
 
 ## Activación
 
-La aplicación dispone de un mecanismo de activación local asociado al identificador del equipo.
+La aplicación dispone de un mecanismo de activación local asociado a un identificador del equipo.
 
-Las licencias utilizan firmas digitales Ed25519: el programa incluye una clave pública para verificarlas, mientras que la clave privada y el generador se mantienen fuera del repositorio y del programa distribuido.
+Las licencias utilizan firmas digitales Ed25519.
 
-Este mecanismo sirve para estudiar la firma y verificación de licencias, pero no debe considerarse una protección resistente frente a la ingeniería inversa.
+El programa incluye únicamente la clave pública necesaria para verificar una licencia.
+
+La clave privada utilizada para generar firmas y el generador de licencias se mantienen fuera del repositorio y de la aplicación distribuida.
+
+Este mecanismo constituye una implementación práctica de firma y verificación criptográfica, pero no debe considerarse una protección resistente frente a ingeniería inversa.
+
+## Distribución
+
+La aplicación puede empaquetarse para Windows mediante PyInstaller.
+
+La compilación candidata a **v1.0.0** se ha generado como aplicación de 64 bits para Windows y ha sido probada después de copiarse y extraerse en ubicaciones independientes del repositorio y del entorno de desarrollo.
+
+El ejecutable utiliza los archivos almacenados en `%LOCALAPPDATA%\Invernadero`, por lo que los datos del usuario no dependen de la carpeta donde se encuentre el programa.
+
+### Flujos comprobados desde la aplicación empaquetada
+
+Se han probado manualmente:
+
+- Inicio de la aplicación desde el ejecutable.
+- Activación mediante licencia.
+- Conservación de la licencia después de cerrar y volver a abrir.
+- Creación de clientes.
+- Persistencia después de cerrar la aplicación.
+- Creación de pedidos.
+- Registro de abonos.
+- Recuperación de clientes, pedidos y pagos después de reiniciar.
+- Creación de copias de seguridad.
+- Restauración de una copia existente.
+- Ejecución de la aplicación después de extraer el paquete en una ubicación diferente.
+
+La ejecución en una segunda computadora física todavía no ha sido validada.
 
 ## Estado y alcance
 
-El proyecto se encuentra en desarrollo y se utiliza actualmente como experiencia práctica y proyecto de portafolio.
+El proyecto se encuentra en una etapa funcional y se utiliza principalmente como experiencia práctica y proyecto de portafolio.
 
-En su estado actual:
+Actualmente:
 
 - Es una aplicación de escritorio.
 - Funciona localmente.
 - No requiere Internet para gestionar los datos.
 - Utiliza JSON como almacenamiento.
+- Cuenta con guardado seguro.
+- Cuenta con copias de seguridad y restauración.
+- Puede recuperarse ante determinados errores del archivo de datos.
+- Utiliza licencias firmadas digitalmente.
+- Cuenta con pruebas automatizadas e integración continua.
+- Puede empaquetarse como aplicación ejecutable para Windows.
+- Utiliza una ubicación estable para los archivos de usuario.
 - No dispone de sincronización entre equipos.
 - No incluye una interfaz web.
-- No se ha desplegado todavía para uso operativo en el invernadero.
+- Todavía no ha sido desplegada para uso operativo real en el invernadero.
 
-La aplicación se ha desarrollado y probado en Windows con Python 3.14.
+La aplicación se ha desarrollado y probado principalmente en Windows con Python 3.14.
 
 ## Próximas mejoras
 
-- Definir una ubicación estable para los archivos de datos al distribuir la aplicación.
-- Preparar y comprobar una versión ejecutable para Windows.
-- Ampliar las validaciones y las pruebas automatizadas, especialmente de la interfaz.
-- Revisar la experiencia de uso y los mensajes de error.
-- Continuar mejorando la documentación técnica.
+El objetivo actual no es añadir funcionalidades sin una necesidad concreta, sino mantener una versión estable y mejorarla cuando existan motivos reales para hacerlo.
 
-La incorporación de otras tecnologías, como SQLite, se evaluará si aparecen necesidades concretas que lo justifiquen.
+Posibles mejoras futuras:
+
+- Probar la distribución en otras computadoras Windows.
+- Automatizar parcialmente las pruebas de la interfaz gráfica.
+- Mejorar algunos aspectos de experiencia de usuario.
+- Refinar los mensajes de error.
+- Incorporar un instalador si la distribución del programa lo requiere.
+- Evaluar copias de seguridad automáticas si un usuario real las necesita.
+- Incorporar nuevas funcionalidades según el uso real del sistema.
+
+Tecnologías adicionales, como SQLite, se evaluarán únicamente si aparecen requisitos que justifiquen el cambio.
 
 ## Origen y objetivo del proyecto
 
-Este proyecto nació a partir de una necesidad planteada por un familiar que administra un invernadero y buscaba una alternativa a los registros manuales.
+Este proyecto nació a partir de una necesidad planteada por un familiar que administra un invernadero y buscaba una alternativa a los registros manuales de clientes y pedidos.
 
-Además de explorar una solución para ese problema, su objetivo es adquirir experiencia práctica en programación orientada a objetos, diseño de software, persistencia, interfaces gráficas, pruebas automatizadas, manejo de errores y control de versiones.
+Además de explorar una solución para ese problema, el proyecto tiene como objetivo adquirir experiencia práctica en:
 
-El desarrollo también busca comprender el funcionamiento completo de una aplicación: desde la entrada de datos hasta su almacenamiento, recuperación y distribución.
+- Programación orientada a objetos.
+- Diseño y organización de software.
+- Persistencia de datos.
+- Manejo de información monetaria.
+- Interfaces gráficas.
+- Manejo seguro de archivos.
+- Copias de seguridad y recuperación.
+- Criptografía aplicada a licencias.
+- Pruebas automatizadas.
+- Integración continua.
+- Control de versiones con Git y GitHub.
+- Empaquetado y distribución de aplicaciones de escritorio.
+
+El desarrollo busca comprender el funcionamiento completo de una aplicación: desde la entrada de datos y su representación mediante objetos hasta su almacenamiento, recuperación, protección, prueba y distribución.
